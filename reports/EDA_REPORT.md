@@ -3,10 +3,10 @@
 > **이 문서 하나로 데이터 전체를 이해할 수 있게 쓴 문서입니다.**
 > 데이터 구조 → 컬럼별 상세 → 결측치 → 이상치 → 정제 → **핵심 발견** 순서입니다.
 > 근거를 먼저 깔고 결론(6장)으로 갑니다. **결론만 급하면 [6장](#6-핵심-발견-5가지)부터 읽으세요.**
-> 모든 수치는 `eda.ipynb` 를 실행해 얻은 값이며, 각 절 끝에 해당 노트북 셀 번호를 적어 두었습니다.
+> 모든 수치는 `notebooks/eda.ipynb` 를 실행해 얻은 값이며, 각 절 끝에 해당 노트북 셀 번호를 적어 두었습니다.
 
-- 대상 파일: `InsightStay_data.csv` (약 1.06 GB)
-- 분석 노트북: `eda.ipynb`
+- 대상 파일: `data/raw/InsightStay_data.csv` (약 1.06 GB)
+- 분석 노트북: `notebooks/eda.ipynb`
 - 작성 기준일: 2026-09-26
 
 ## 목차
@@ -68,10 +68,10 @@
 `description` / `name` 두 자유 텍스트 컬럼이 1GB의 대부분을 차지합니다. 제외하고 읽으면 **약 5초**에 로딩됩니다.
 
 ```python
-all_cols = pd.read_csv("InsightStay_data.csv", nrows=0).columns.tolist()
+all_cols = pd.read_csv("data/raw/InsightStay_data.csv", nrows=0).columns.tolist()
 use_cols = [c for c in all_cols if c not in {"name", "description"}]
-df = pd.read_csv("InsightStay_data.csv", usecols=use_cols, engine="pyarrow")
-df.to_parquet("_cache_insightstay.parquet", index=False)   # 이후엔 캐시에서 즉시 로드
+df = pd.read_csv("data/raw/InsightStay_data.csv", usecols=use_cols, engine="pyarrow")
+df.to_parquet("data/processed/_cache_insightstay.parquet", index=False)   # 이후엔 캐시에서 즉시 로드
 ```
 
 `engine="pyarrow"` 미사용 시 기본 C 엔진으로는 수 분 걸립니다.
@@ -675,7 +675,7 @@ IQR 기준을 기계적으로 적용하면 `minimum_nights` 13.2%, `number_of_re
 | **`insightstay_clean.parquet`** | **840,616** | 정제 완료본. 전체 공급 구조·죽은 재고 분석용 |
 | **`insightstay_core.parquet`** | **651,090** | **source=0 & 가격 보유.** 가격·가동률·수익성 분석용 |
 
-> 세 파일 모두 `.gitignore` 처리(용량). 노트북 실행 시 재생성됩니다.
+> 세 파일 모두 `data/processed/` 에 저장되고 `.gitignore` 처리(용량)됩니다. 노트북 실행 시 재생성됩니다.
 
 ### 5.3 주요 파생 컬럼
 
@@ -899,8 +899,8 @@ price = list_price × (1 − 할인율)                   (price > list_price 0�
 ```python
 import pandas as pd
 
-df   = pd.read_parquet("insightstay_clean.parquet")   # 840,616행 — 전체 공급 구조
-core = pd.read_parquet("insightstay_core.parquet")    # 651,090행 — 가격·수익성 분석
+df   = pd.read_parquet("data/processed/insightstay_clean.parquet")   # 840,616행 — 전체 공급 구조
+core = pd.read_parquet("data/processed/insightstay_core.parquet")    # 651,090행 — 가격·수익성 분석
 
 # 도시별 숙소당 수익성 = 가동률 × 객단가
 core.groupby("region").agg(

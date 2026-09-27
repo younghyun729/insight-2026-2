@@ -1,4 +1,6 @@
 *.csv
 *.parquet
+data/raw/
+data/processed/
 .ipynb_checkpoints/
 __pycache__/

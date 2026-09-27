@@ -2,12 +2,21 @@
 
 1차 인사이콘 - 데이터 기반 유럽 시장 수익성 진단 및 공급 포트폴리오 재설계 (5팀)
 
-`InsightStay_data.csv`는 용량 문제(약 1GB)로 git에서 제외되어 있습니다. 다른 노트북에서 작업하려면 해당 파일을 별도로 복사해오세요.
+## 폴더 구조
+
+```
+data/raw/         InsightStay_data.csv          # 원본 (git 제외)
+data/processed/   *.parquet                     # 노트북이 생성 (git 제외)
+notebooks/        eda.ipynb                     # 분석 노트북
+reports/          EDA_REPORT.md                 # 문서 산출물
+```
+
+원본 CSV와 parquet은 용량 문제(약 1GB)로 git에서 제외되어 있습니다. 새 환경에서는 `data/raw/InsightStay_data.csv`를 직접 복사해 두고 노트북을 처음부터 실행하면 `data/processed/`가 재생성됩니다. 노트북은 실행 위치와 무관하게 `README.md`가 있는 폴더를 프로젝트 루트로 잡아 경로를 맞춥니다.
 
 ## 분석 산출물
 
-- [`EDA_REPORT.md`](EDA_REPORT.md) — **데이터 구조 · 컬럼 50개 전수 설명 · 실측 분포 · 결측치 처리 방안 · 이상치 · 정제 레시피.** 이 문서 하나로 데이터 전체를 이해할 수 있습니다.
-- [`eda.ipynb`](eda.ipynb) — 위 리포트의 모든 수치·표·그래프를 재현하는 노트북 (28개 코드 셀)
+- [`reports/EDA_REPORT.md`](reports/EDA_REPORT.md) — **데이터 구조 · 컬럼 50개 전수 설명 · 실측 분포 · 결측치 처리 방안 · 이상치 · 정제 레시피.** 이 문서 하나로 데이터 전체를 이해할 수 있습니다.
+- [`notebooks/eda.ipynb`](notebooks/eda.ipynb) — 위 리포트의 모든 수치·표·그래프를 재현하는 노트북 (28개 코드 셀)
 
 ## 과제 개요
 
@@ -25,7 +34,7 @@ InsightStay(유럽 공유 숙박 플랫폼)의 등록 숙소 데이터를 분석
 - 도시마다 규제 환경이 다름 (예: 파리·바르셀로나·암스테르담 vs 리스본·아테네) — 도시별 규제 리스크·시장 성숙도 고려.
 - 호스트는 단일 집단이 아님 — 개인 호스트(1채) vs 전문 사업자(다채) 행동 방식·수익 기여도 상이.
 
-## 데이터셋 (`InsightStay_data.csv`)
+## 데이터셋 (`data/raw/InsightStay_data.csv`)
 
 주요 컬럼 그룹 (전체 50개 컬럼):
 
