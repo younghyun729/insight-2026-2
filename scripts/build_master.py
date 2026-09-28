@@ -291,7 +291,7 @@ MD_TEMPLATE = """# InsightStay 전처리 명세
 
 ### 원칙
 
-**삭제는 양이 적고 오류가 확실한 것만.**
+#### 1. 삭제는 양이 적고 오류가 확실한 것만
 
 `host_is_superhost` 결측 **{host_is_superhost_drop:,}건**은 이 컬럼 하나가 빈 것이 아닙니다. `hosts_time_as_*` 4개와 `host_location` 까지 **호스트 정보 5개 컬럼이 전부 동시에 비어 있고**, {sh_all_host_cols_na:,}건 모두가 그렇습니다(예외 없음). 아는 것이 `host_id` 뿐이라 슈퍼호스트 여부를 추정할 근거 자체가 없습니다 — 경력 컬럼도 같이 비어 있기 때문입니다. `f` 로 채우면 슈퍼호스트 비율이 그만큼 왜곡됩니다.
 
@@ -299,13 +299,21 @@ MD_TEMPLATE = """# InsightStay 전처리 명세
 
 실질적인 영향은 없다고 봅니다. **source=1 전체의 {sh_of_source1}%** 에 불과하고, 호스트 분석은 어차피 source=0 기준으로 하기 때문입니다. `minimum/maximum_nights` {minmax_drop:,}건과 합쳐도 전체의 0.12%입니다.
 
-**'값이 없다'와 '해당 없음'을 구분합니다.** `discount_type` 의 결측은 할인이 없다는 뜻이므로 `no_discount` 라는 값입니다. 다만 완전한 1:1은 아닙니다 — `price < list_price` 인데 유형이 비어 있는 **{discount_unknown:,}건**이 있어 `unknown_discount` 로 따로 뺐습니다. 이걸 `no_discount` 에 넣으면 할인 효과 분석이 그만큼 희석됩니다.
+#### 2. '값이 없다'와 '해당 없음'을 구분한다
 
-**`neighbourhood_group_cleansed` 를 `region` 으로 덮지 않았습니다.** 53개 도시 중 17개만 구역 정보가 있고 36개는 전혀 없습니다. `region` 값으로 채우면 한 컬럼에 '구역'과 '도시' 두 단위가 섞여, 마드리드의 한 구역과 로마 전체가 같은 급으로 취급됩니다. `{{region}}_전체` 형태로 채워 단위가 다르다는 사실을 값에 드러내고, `neighbourhood_is_city_level` ({nb_city_level:,}건) 로도 구분했습니다. **구역 단위 분석은 이 플래그가 `False` 인 행으로 한정하세요.**
+`discount_type` 의 결측은 할인이 없다는 뜻이므로 `no_discount` 라는 값입니다. 다만 완전한 1:1은 아닙니다 — `price < list_price` 인데 유형이 비어 있는 **{discount_unknown:,}건**이 있어 `unknown_discount` 로 따로 뺐습니다. 이걸 `no_discount` 에 넣으면 할인 효과 분석이 그만큼 희석됩니다.
 
-**`beds` · `bathrooms` 는 source=1 을 대체하지 않았습니다.** 이 두 컬럼은 source=1 에서 결측률이 **100%** 입니다. 무작위 결측이 아니라 수집 스키마가 다른 것이어서, 채우려면 관측값 0건에서 값을 만들어내야 합니다. 그래서 source=0 안에서만 채웠고 (source=0 보유율 `bathrooms` {bathrooms_s0_rate}% · `beds` {beds_s0_rate}%), 나머지는 결측으로 남겼습니다. **이 두 컬럼을 쓰는 분석은 source=0 으로 한정하세요.** `bedrooms` 는 source=1 에도 관측값이 74% 있어 양쪽 모두 채웠습니다 (잔여 {bedrooms_still_na:,}건, source=0 보유율 {bedrooms_s0_rate}%).
+#### 3. `neighbourhood_group_cleansed` 를 `region` 으로 덮지 않는다
 
-**대체값은 `_impute` 컬럼으로 추적됩니다.** `observed` / `similar_host` / `group_median` / `missing` 네 값이라 어느 수치가 관측이고 어느 것이 대체인지 항상 구분됩니다. 중앙값 대체는 분산을 누르므로 (`bedrooms` 표준편차 1.158 → 대체분 0.320), **상관분석처럼 분산이 결과를 좌우하는 계산은 `_impute == "observed"` 로 걸러 쓰세요.**
+53개 도시 중 17개만 구역 정보가 있고 36개는 전혀 없습니다. `region` 값으로 채우면 한 컬럼에 '구역'과 '도시' 두 단위가 섞여, 마드리드의 한 구역과 로마 전체가 같은 급으로 취급됩니다. `{{region}}_전체` 형태로 채워 단위가 다르다는 사실을 값에 드러내고, `neighbourhood_is_city_level` ({nb_city_level:,}건) 로도 구분했습니다. **구역 단위 분석은 이 플래그가 `False` 인 행으로 한정하세요.**
+
+#### 4. `beds` · `bathrooms` 는 source=1 을 대체하지 않는다
+
+이 두 컬럼은 source=1 에서 결측률이 **100%** 입니다. 무작위 결측이 아니라 수집 스키마가 다른 것이어서, 채우려면 관측값 0건에서 값을 만들어내야 합니다. 그래서 source=0 안에서만 채웠고 (source=0 보유율 `bathrooms` {bathrooms_s0_rate}% · `beds` {beds_s0_rate}%), 나머지는 결측으로 남겼습니다. **이 두 컬럼을 쓰는 분석은 source=0 으로 한정하세요.** `bedrooms` 는 source=1 에도 관측값이 74% 있어 양쪽 모두 채웠습니다 (잔여 {bedrooms_still_na:,}건, source=0 보유율 {bedrooms_s0_rate}%).
+
+#### 5. 대체한 값은 전부 추적 가능하게 남긴다
+
+`_impute` 컬럼에 `observed` / `similar_host` / `group_median` / `missing` 네 값이라 어느 수치가 관측이고 어느 것이 대체인지 항상 구분됩니다. 중앙값 대체는 분산을 누르므로 (`bedrooms` 표준편차 1.158 → 대체분 0.320), **상관분석처럼 분산이 결과를 좌우하는 계산은 `_impute == "observed"` 로 걸러 쓰세요.**
 
 ---
 
