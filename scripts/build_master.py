@@ -117,8 +117,11 @@ def drop_rows(df):
     n0 = len(df)
     S["n_raw"] = n0
 
+    # host_is_superhost 결측 900건은 삭제하지 않는다. 호스트 메타만 비어 있을 뿐
+    # 지역·숙소유형·리뷰·가용일수는 100% 관측돼 있고, 878건이 'Room in hotel' 이라
+    # source=1 호텔 개인실 세그먼트의 21.4% 를 차지한다. 지우면 그 세그먼트의
+    # 최근 1년 리뷰 보유율이 33.4% → 24.2% 로 9.2%p 내려간다. unknown 으로 둔다.
     miss = {
-        "host_is_superhost 결측": df["host_is_superhost"].isna(),
         "minimum/maximum_nights 결측": df["minimum_nights"].isna() | df["maximum_nights"].isna(),
     }
     out = {
@@ -135,13 +138,19 @@ def drop_rows(df):
 
     m_miss = np.logical_or.reduce([v.fillna(False) for v in miss.values()])
     m_out = np.logical_or.reduce([v.fillna(False) for v in out.values()])
-    # 이 결측이 무작위인지 확인한다 — source 에 종속돼 있으면 문서에 그렇게 적어야 한다.
-    sh = miss["host_is_superhost 결측"].fillna(False)
-    S["sh_all_host_cols_na"] = int((sh & df[[
-        "hosts_time_as_user_years", "hosts_time_as_user_months",
-        "hosts_time_as_host_years", "hosts_time_as_host_months"]].isna().all(axis=1)).sum())
-    S["sh_source1_share"] = round((df.loc[sh, "source"] == 1).mean() * 100, 1)
-    S["sh_of_source1"] = round(sh.sum() / (df["source"] == 1).sum() * 100, 2)
+    # 호스트 메타 결측을 삭제하지 않기로 한 근거를 수치로 남긴다.
+    sh = df["host_is_superhost"].isna()
+    S["sh_n"] = int(sh.sum())
+    S["sh_hotel_rooms"] = int((sh & df["property_type"].eq("Room in hotel")).sum())
+    seg = ((df["source"] == 1) & df["room_type"].eq("Private room")
+           & df["property_type"].str.contains("hotel", case=False, na=False))
+    inc = (df.loc[seg, "number_of_reviews_ltm"] > 0).mean() * 100
+    exc = (df.loc[seg & ~sh, "number_of_reviews_ltm"] > 0).mean() * 100
+    S["seg_n"] = int(seg.sum())
+    S["seg_share"] = round((seg & sh).sum() / seg.sum() * 100, 1)
+    S["seg_inc"] = round(inc, 2)
+    S["seg_exc"] = round(exc, 2)
+    S["seg_gap"] = round(inc - exc, 2)
 
     S["drop_miss_total"] = int(m_miss.sum())
     S["drop_out_total"] = int(m_out.sum())
@@ -157,11 +166,18 @@ def drop_rows(df):
 
 # ── 4. 결측 처리 (삭제 외) ─────────────────────────────────────────────────────
 def fill_missing(df):
-    # discount_type — 결측 = 할인 없음. 단 '할인가인데 유형 미기재' 예외가 있다.
-    disc_unknown = (df["price"] < df["list_price"]) & df["discount_type"].isna()
-    S["discount_unknown"] = int(disc_unknown.sum())
+    # discount_type — 결측을 전부 '할인 없음'으로 볼 수는 없다.
+    # price 와 list_price 를 비교할 수 있어야 할인 여부를 판정할 수 있고,
+    # 둘 중 하나라도 비면 알 방법이 없다 → unknown.
+    # 차이가 0.01€ 인 건은 할인이 아니라 반올림 오차다. 반대 방향(price 가 0.01 큼)이
+    # 5,288건이나 되고, 실제 할인은 차이 중앙값이 20.80€ 로 자릿수가 다르다.
+    na = df["discount_type"].isna()
+    can_compare = df["price"].notna() & df["list_price"].notna()
+    S["discount_unknown"] = int((na & ~can_compare).sum())
+    S["discount_none"] = int((na & can_compare).sum())
+    S["discount_real"] = int((~na).sum())
     df["discount_type"] = df["discount_type"].fillna("no_discount")
-    df.loc[disc_unknown, "discount_type"] = "unknown_discount"
+    df.loc[na & ~can_compare, "discount_type"] = "unknown"
 
     # neighbourhood — region 으로 덮으면 '구역'과 '도시'가 한 컬럼에 섞인다.
     # 단위가 다르다는 사실을 값에 드러내고 플래그로도 남긴다.
@@ -171,6 +187,9 @@ def fill_missing(df):
     df["neighbourhood_group_cleansed"] = df["neighbourhood_group_cleansed"].fillna(
         df["region"] + "_전체")
 
+    # 호스트 메타 — 채울 근거가 없으므로 추정하지 않고 unknown 으로 둔다.
+    df["host_meta_is_unknown"] = df["host_is_superhost"].isna()
+    df["host_is_superhost"] = df["host_is_superhost"].fillna("unknown")
     df["host_location"] = df["host_location"].fillna("unknown")
     df["reviews_per_month"] = df["reviews_per_month"].fillna(0)
 
@@ -297,17 +316,35 @@ MD_TEMPLATE = """# InsightStay 전처리 명세
 
 ### 원칙
 
-#### 1. 삭제는 양이 적고 오류가 확실한 것만
+#### 1. 채울 수 없는 것과 버려야 하는 것은 다르다
 
-`host_is_superhost` 결측 **{host_is_superhost_drop:,}건**은 이 컬럼 하나가 빈 것이 아닙니다. `hosts_time_as_*` 4개와 `host_location` 까지 **호스트 정보 5개 컬럼이 전부 동시에 비어 있고**, {sh_all_host_cols_na:,}건 모두가 그렇습니다(예외 없음). 아는 것이 `host_id` 뿐이라 슈퍼호스트 여부를 추정할 근거 자체가 없습니다 — 경력 컬럼도 같이 비어 있기 때문입니다. `f` 로 채우면 슈퍼호스트 비율이 그만큼 왜곡됩니다.
+행 삭제는 **`minimum/maximum_nights` 결측 {minmax_drop:,}건**뿐입니다(전체의 0.016%). 두 컬럼이 항상 함께 비어 있고, 이건 플랫폼이 계산한 값이 아니라 **호스트가 직접 설정한 값**이라 추정할 근거가 없습니다. 분포도 중앙값 2박·90퍼센타일 14박으로 제각각이라(표준편차 43.3) 중앙값으로 채우면 장기 임대 매물이 단기 매물로 둔갑합니다. 게다가 `minimum_nights` 는 과제가 지목한 핵심 변수입니다. 41개 도시·132명 호스트에 고루 흩어져 있어 삭제해도 표본이 왜곡되지 않습니다.
 
-**다만 무작위 결측은 아닙니다.** 이 {host_is_superhost_drop:,}건은 **{sh_source1_share}% 가 source=1** 입니다(전체에서 source=1 은 19.4%). source=1 은 과거값 이월분이라 호스트 메타 갱신이 누락된 것으로 보이며, 도시로는 파리·마드리드·암스테르담에 몰려 있습니다. 엄밀히는 source 에 종속된 결측(MAR)입니다.
+**`host_is_superhost` 결측 {sh_n:,}건은 삭제하지 않습니다.** 처음에는 지웠다가 되돌렸습니다. 호스트 메타 5개 컬럼(`host_is_superhost`, `hosts_time_as_*` 4종)이 전부 동시에 비어 있는 건 맞지만, **나머지 정보는 멀쩡합니다** — 지역·숙소유형·판매단위·수용인원·누적리뷰·최근 1년 리뷰·가용일수가 **100% 관측**돼 있고 가격도 87.9% 있습니다.
 
-실질적인 영향은 없다고 봅니다. **source=1 전체의 {sh_of_source1}%** 에 불과하고, 호스트 분석은 어차피 source=0 기준으로 하기 때문입니다. `minimum/maximum_nights` {minmax_drop:,}건과 합쳐도 전체의 0.12%입니다.
+지우면 특정 세그먼트가 망가집니다. 이 {sh_n:,}건 중 **{sh_hotel_rooms:,}건이 `Room in hotel`** 이라, source=1 호텔 개인실 {seg_n:,}행의 **{seg_share}%** 를 차지합니다. 삭제 전후로 이 세그먼트의 최근 1년 리뷰 보유율이 이렇게 움직입니다.
 
-#### 2. '값이 없다'와 '해당 없음'을 구분한다
+| source=1 호텔 개인실 | 최근 1년 리뷰 보유율 |
+|---|---:|
+| 포함 | **{seg_inc}%** |
+| 제외 | {seg_exc}% |
+| | **{seg_gap}%p** |
 
-`discount_type` 의 결측은 할인이 없다는 뜻이므로 `no_discount` 라는 값입니다. 다만 완전한 1:1은 아닙니다 — `price < list_price` 인데 유형이 비어 있는 **{discount_unknown:,}건**이 있어 `unknown_discount` 로 따로 뺐습니다. 이걸 `no_discount` 에 넣으면 할인 효과 분석이 그만큼 희석됩니다.
+전체로는 0.107%지만 이 세그먼트 안에서는 5분의 1입니다. **호스트 정보 하나를 모른다는 이유로 공급·수요 정보를 통째로 버릴 이유가 없습니다.** `unknown` 으로 두고 `host_meta_is_unknown` 플래그를 붙였습니다.
+
+> **슈퍼호스트 비율을 계산할 때는 `unknown` 을 분모에서 빼세요.** `host_is_superhost` 가 `t`/`f`/`unknown` 3값이라, `t / 전체` 로 계산하면 이 {sh_n:,}건 때문에 비율이 실제보다 낮게 나옵니다. `df[df.host_is_superhost != "unknown"]` 으로 거른 뒤 계산하거나 `host_meta_is_unknown == False` 로 필터링하세요.
+
+#### 2. '할인 없음'과 '알 수 없음'을 구분한다
+
+`discount_type` 의 결측을 전부 `no_discount` 로 채우면 안 됩니다. 할인 여부는 `price` 와 `list_price` 를 비교해야 알 수 있는데, **둘 중 하나라도 비어 있으면 판정할 방법이 없습니다.** 그런 행이 **{discount_unknown:,}건**입니다. 이걸 '할인 없음'으로 단정하면 할인 효과 분석의 분모가 그만큼 부풀려집니다. 그래서 세 값으로 나눴습니다.
+
+| 값 | 건수 | 근거 |
+|---|---:|---|
+| 실제 할인 5종 | {discount_real:,} | `discount_type` 이 원래 채워져 있던 행 |
+| `no_discount` | {discount_none:,} | 두 가격 비교 가능, 차이 없음 |
+| **`unknown`** | **{discount_unknown:,}** | **두 가격 중 하나 이상 결측 → 판정 불가** |
+
+**`list_price` 가 `price` 보다 0.01€ 큰 1,501건은 할인이 아닙니다.** 전부 정확히 0.01€ 차이이고 할인율로는 평균 0.0056% 입니다. 반대 방향(price 가 0.01 큼)도 5,288건 있어 한쪽으로 쏠리지 않습니다 — **반올림 오차**입니다. 실제 할인은 차이의 중앙값이 20.80€ 로 자릿수가 다릅니다. 이 1,501건은 `no_discount` 에 포함됩니다.
 
 #### 3. `neighbourhood_group_cleansed` 를 `region` 으로 덮지 않는다
 
@@ -406,7 +443,7 @@ python scripts/build_master.py
 # ── 8. 리포트 ──────────────────────────────────────────────────────────────────
 # 결측 처리 방향. (그룹, 처리 요약) — 표의 순서도 이 순서를 따른다.
 PLAN = [
-    ("discount_type", "범주", "`no_discount` 로 채움. 단 **할인가인데 유형이 비어 있는 {discount_unknown:,}건**은 `unknown_discount` 로 분리"),
+    ("discount_type", "범주", "가격 비교가 가능한 {discount_none:,}건은 `no_discount`, **두 가격 중 하나라도 결측이라 판정 불가한 {discount_unknown:,}건은 `unknown`**"),
     ("neighbourhood_group_cleansed", "범주", "`{region}_전체` 로 채우고 `neighbourhood_is_city_level` 플래그. **`region` 값으로 덮지 않음**"),
     ("host_location", "범주", "`unknown` 으로 채움 (호스트–숙소 거리 분석에 쓰므로 삭제하지 않음)"),
     ("bathrooms", "수치", "대체본 반영 — 유사 숙소 {bathrooms_filled_n:,}건 채움. **source=1 은 대체하지 않음**"),
@@ -421,7 +458,7 @@ PLAN = [
     ("price_quote_total_price", "수치", "**결측 유지** — 위와 동일"),
     ("price_quote_checkin_date", "날짜", "**결측 유지** — 위와 동일"),
     ("price_quote_checkout_date", "날짜", "**결측 유지** — 위와 동일"),
-    ("host_is_superhost", "범주", "**행 삭제** ({host_is_superhost_drop:,}건) — 호스트 메타가 통째로 빈 행"),
+    ("host_is_superhost", "범주", "**`unknown` 으로 채움** ({sh_n:,}건) + `host_meta_is_unknown` 플래그. **슈퍼호스트 비율은 `unknown` 을 분모에서 빼고 계산할 것**"),
     ("minimum_nights", "수치", "**행 삭제** ({minmax_drop:,}건)"),
     ("maximum_nights", "수치", "**행 삭제** — 위와 동일"),
 ]
@@ -434,6 +471,7 @@ NEW_COLS = [
     ("bathrooms_impute / bedrooms_impute / beds_impute", "`observed` / `similar_host` / `group_median` / `missing`"),
     ("neighbourhood_is_city_level", "구역 값이 없어 도시 단위로 채워진 행"),
     ("host_listings_is_unknown", "`host_listings_total == 0` 이던 행"),
+    ("host_meta_is_unknown", "호스트 메타 5개 컬럼이 비어 있던 행. 슈퍼호스트 비율 계산에서 제외할 것"),
     ("has_price / has_review / is_bookable / is_active", "세그먼트 플래그"),
     ("days_since_last_review", f"기준일에서 마지막 리뷰까지 경과일"),
     ("flag_*", "이상치 플래그 8종 — 2.2 표 참고"),
@@ -455,7 +493,6 @@ FLAG_DESC = {
 def write_md(df):
     NL = chr(10)
     b, a = S["na_before"], S["na_after"]
-    S["host_is_superhost_drop"] = S["drop_miss"]["host_is_superhost 결측"]
     S["minmax_drop"] = S["drop_miss"]["minimum/maximum_nights 결측"]
 
     # 잔여 결측은 '처리 후' 행 수 기준으로 다시 센다 (병합 직후 수치는 삭제 전이라 크다).
