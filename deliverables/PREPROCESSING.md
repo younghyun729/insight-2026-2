@@ -1,8 +1,8 @@
 # InsightStay 전처리 명세
 
 > `scripts/build_master.py` 가 생성합니다. 이 문서의 모든 수치는 실행 결과에서 자동으로 채워지므로 본문과 데이터가 어긋나지 않습니다.
-> 산출물: **`data/processed/InsightStay_data_cleaned.csv`** (840,616행 × 73열, 826.9 MB)
-> 같은 내용의 `InsightStay_data_cleaned.parquet` (135.2 MB) 을 함께 냅니다. 읽기 속도가 필요하면 이쪽을 쓰세요.
+> 산출물: **`deliverables/InsightStay_data_cleaned.csv`** (840,616행 × 73열, 826.9 MB)
+> 같은 내용의 `data/processed/InsightStay_data_cleaned.parquet` (135.2 MB) 을 함께 냅니다. 읽기 속도가 필요하면 이쪽을 쓰세요.
 
 | 항목 | 값 |
 |---|---|

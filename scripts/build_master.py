@@ -5,8 +5,9 @@
   data/raw/InsightStay_data.csv          원본 (또는 data/processed/_cache_insightstay.parquet 캐시)
   data/raw/시설_분석용_대체본.csv          bathrooms/bedrooms/beds 대체본 (주현)
 출력
-  data/processed/InsightStay_data_cleaned.csv
-  reports/PREPROCESSING.md
+  deliverables/InsightStay_data_cleaned.csv    최종 산출물
+  deliverables/PREPROCESSING.md                최종 산출물
+  data/processed/InsightStay_data_cleaned.parquet   (같은 내용, 읽기 속도용)
 
 name / description 두 자유 텍스트 컬럼은 용량의 대부분을 차지하므로 제외한다.
 필요하면 원본에서 id 기준으로 나중에 머지한다.
@@ -19,8 +20,10 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW, PROC = ROOT / "data" / "raw", ROOT / "data" / "processed"
-OUT_CSV = PROC / "InsightStay_data_cleaned.csv"
-OUT_MD = ROOT / "reports" / "PREPROCESSING.md"
+# 최종 산출물은 한 폴더에 모은다. 노션 등으로 그대로 건네는 파일들이다.
+DELIV = ROOT / "deliverables"
+OUT_CSV = DELIV / "InsightStay_data_cleaned.csv"
+OUT_MD = DELIV / "PREPROCESSING.md"
 TEXT_COLS = {"name", "description"}
 
 # 리포트에 쓸 수치를 모으는 곳. MD 는 이 값으로만 쓰므로 본문과 데이터가 어긋날 수 없다.
@@ -235,6 +238,7 @@ def save(df):
     """CSV 는 float64 를 소수점 17자리까지 적어서 용량이 몇 배로 불어난다.
     의미 있는 자리까지만 반올림하고, 빠르게 읽을 parquet 을 같이 낸다."""
     PROC.mkdir(parents=True, exist_ok=True)
+    DELIV.mkdir(parents=True, exist_ok=True)
     for c in df.select_dtypes("float").columns:
         df[c] = df[c].round(4)
 
@@ -252,8 +256,8 @@ def save(df):
 MD_TEMPLATE = """# InsightStay 전처리 명세
 
 > `scripts/build_master.py` 가 생성합니다. 이 문서의 모든 수치는 실행 결과에서 자동으로 채워지므로 본문과 데이터가 어긋나지 않습니다.
-> 산출물: **`data/processed/InsightStay_data_cleaned.csv`** ({n_final:,}행 × {n_cols}열, {size_mb} MB)
-> 같은 내용의 `InsightStay_data_cleaned.parquet` ({size_pq_mb} MB) 을 함께 냅니다. 읽기 속도가 필요하면 이쪽을 쓰세요.
+> 산출물: **`deliverables/InsightStay_data_cleaned.csv`** ({n_final:,}행 × {n_cols}열, {size_mb} MB)
+> 같은 내용의 `data/processed/InsightStay_data_cleaned.parquet` ({size_pq_mb} MB) 을 함께 냅니다. 읽기 속도가 필요하면 이쪽을 쓰세요.
 
 | 항목 | 값 |
 |---|---|
