@@ -418,7 +418,7 @@ MD_TEMPLATE = """# InsightStay 전처리 명세
 
 `log1p`(= log(1+x))를 쓴 이유는 0을 허용하기 위해서입니다. 현재 `price == 0` 은 없지만 `list_price`·`quote` 에 0이 들어와도 계산이 깨지지 않습니다.
 
-**왜도가 9.34 → 0.01 로 떨어졌습니다.** 정규분포에 가까워졌다는 뜻이라 평균 비교·회귀·상관에 바로 쓸 수 있습니다. 다만 **로그값의 평균은 원래 단위의 평균이 아닙니다.** 발표에 "평균 객단가 OO€"를 쓸 때는 반드시 원본 `price` 의 중앙값이나 평균을 쓰고, 로그 컬럼은 모델·검정에만 쓰세요.
+**`price` 의 왜도가 {skew_price_before} → {skew_price_after} 로 떨어졌습니다.** 정규분포에 가까워졌다는 뜻이라 평균 비교·회귀·상관에 바로 쓸 수 있습니다. 다만 **로그값의 평균은 원래 단위의 평균이 아닙니다.** 발표에 "평균 객단가 OO€"를 쓸 때는 반드시 원본 `price` 의 중앙값이나 평균을 쓰고, 로그 컬럼은 모델·검정에만 쓰세요.
 
 ---
 
@@ -474,7 +474,7 @@ NEW_COLS = [
     ("host_meta_is_unknown", "호스트 메타 5개 컬럼이 비어 있던 행. 슈퍼호스트 비율 계산에서 제외할 것"),
     ("has_price / has_review / is_bookable / is_active", "세그먼트 플래그"),
     ("days_since_last_review", f"기준일에서 마지막 리뷰까지 경과일"),
-    ("flag_*", "이상치 플래그 8종 — 2.2 표 참고"),
+    ("flag_*", "이상치 플래그 {n_flags}종 — 2.2 표 참고"),
 ]
 
 FLAG_DESC = {
@@ -511,6 +511,10 @@ def write_md(df):
     S["ppp_flagged"] = S["flags"]["flag_price_per_person_over_1000"]
     S["ppp_kept"] = 744 - S["ppp_dropped"] - S["ppp_flagged"]
 
+    S["skew_price_before"] = S["log_cols"]["price"]["skew_before"]
+    S["skew_price_after"] = S["log_cols"]["price"]["skew_after"]
+    S["n_flags"] = len(S["flags"])
+
     rows = []
     for col, kind, how in PLAN:
         how = how.format(region="{region}", **S)
@@ -526,7 +530,7 @@ def write_md(df):
         for k, v in S["flags"].items())
     log_rows_md = NL.join(
         f"| `{c}` | {d['skew_before']} | **{d['skew_after']}** |" for c, d in S["log_cols"].items())
-    new_rows_md = NL.join(f"| `{c}` | {d} |" for c, d in NEW_COLS)
+    new_rows_md = NL.join(f"| `{c}` | {d.format(**S)} |" for c, d in NEW_COLS)
 
     md = MD_TEMPLATE.format(
         na_table=na_table, drop_rows=drop_rows_md, flag_rows=flag_rows_md,
