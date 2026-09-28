@@ -132,6 +132,14 @@ def drop_rows(df):
 
     m_miss = np.logical_or.reduce([v.fillna(False) for v in miss.values()])
     m_out = np.logical_or.reduce([v.fillna(False) for v in out.values()])
+    # 이 결측이 무작위인지 확인한다 — source 에 종속돼 있으면 문서에 그렇게 적어야 한다.
+    sh = miss["host_is_superhost 결측"].fillna(False)
+    S["sh_all_host_cols_na"] = int((sh & df[[
+        "hosts_time_as_user_years", "hosts_time_as_user_months",
+        "hosts_time_as_host_years", "hosts_time_as_host_months"]].isna().all(axis=1)).sum())
+    S["sh_source1_share"] = round((df.loc[sh, "source"] == 1).mean() * 100, 1)
+    S["sh_of_source1"] = round(sh.sum() / (df["source"] == 1).sum() * 100, 2)
+
     S["drop_miss_total"] = int(m_miss.sum())
     S["drop_out_total"] = int(m_out.sum())
     S["drop_out_sum"] = sum(S["drop_out"].values())
@@ -283,7 +291,13 @@ MD_TEMPLATE = """# InsightStay 전처리 명세
 
 ### 원칙
 
-**삭제는 양이 적고 오류가 확실한 것만.** `host_is_superhost` 계열 {host_is_superhost_drop:,}건은 호스트 메타가 통째로 비어 있고, `minimum/maximum_nights` {minmax_drop:,}건과 합쳐도 전체의 0.12%입니다. 무작위 결측으로 볼 수 있어 삭제해도 편향이 생기지 않습니다.
+**삭제는 양이 적고 오류가 확실한 것만.**
+
+`host_is_superhost` 결측 **{host_is_superhost_drop:,}건**은 이 컬럼 하나가 빈 것이 아닙니다. `hosts_time_as_*` 4개와 `host_location` 까지 **호스트 정보 5개 컬럼이 전부 동시에 비어 있고**, {sh_all_host_cols_na:,}건 모두가 그렇습니다(예외 없음). 아는 것이 `host_id` 뿐이라 슈퍼호스트 여부를 추정할 근거 자체가 없습니다 — 경력 컬럼도 같이 비어 있기 때문입니다. `f` 로 채우면 슈퍼호스트 비율이 그만큼 왜곡됩니다.
+
+**다만 무작위 결측은 아닙니다.** 이 {host_is_superhost_drop:,}건은 **{sh_source1_share}% 가 source=1** 입니다(전체에서 source=1 은 19.4%). source=1 은 과거값 이월분이라 호스트 메타 갱신이 누락된 것으로 보이며, 도시로는 파리·마드리드·암스테르담에 몰려 있습니다. 엄밀히는 source 에 종속된 결측(MAR)입니다.
+
+실질적인 영향은 없다고 봅니다. **source=1 전체의 {sh_of_source1}%** 에 불과하고, 호스트 분석은 어차피 source=0 기준으로 하기 때문입니다. `minimum/maximum_nights` {minmax_drop:,}건과 합쳐도 전체의 0.12%입니다.
 
 **'값이 없다'와 '해당 없음'을 구분합니다.** `discount_type` 의 결측은 할인이 없다는 뜻이므로 `no_discount` 라는 값입니다. 다만 완전한 1:1은 아닙니다 — `price < list_price` 인데 유형이 비어 있는 **{discount_unknown:,}건**이 있어 `unknown_discount` 로 따로 뺐습니다. 이걸 `no_discount` 에 넣으면 할인 효과 분석이 그만큼 희석됩니다.
 
