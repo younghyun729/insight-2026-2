@@ -5,10 +5,12 @@
 ## 폴더 구조
 
 ```
-data/raw/         InsightStay_data.csv          # 원본 (git 제외)
-data/processed/   *.parquet                     # 노트북이 생성 (git 제외)
-notebooks/        eda.ipynb                     # 분석 노트북
-reports/          EDA_REPORT.md                 # 문서 산출물
+data/raw/         InsightStay_data.csv                 # 원본 (git 제외)
+                  시설_분석용_대체본.csv                  # 시설 3컬럼 대체본 (git 제외)
+data/processed/   InsightStay_data_cleaned.csv/.parquet # 마스터 데이터 (git 제외)
+notebooks/        eda.ipynb                            # EDA 노트북
+scripts/          build_master.py                      # 마스터 데이터 생성
+reports/          EDA_REPORT.md, PREPROCESSING.md      # 문서 산출물
 ```
 
 원본 CSV와 parquet은 용량 문제(약 1GB)로 git에서 제외되어 있습니다. 새 환경에서는 `data/raw/InsightStay_data.csv`를 직접 복사해 두고 노트북을 처음부터 실행하면 `data/processed/`가 재생성됩니다. 노트북은 실행 위치와 무관하게 `README.md`가 있는 폴더를 프로젝트 루트로 잡아 경로를 맞춥니다.
@@ -17,6 +19,15 @@ reports/          EDA_REPORT.md                 # 문서 산출물
 
 - [`reports/EDA_REPORT.md`](reports/EDA_REPORT.md) — **데이터 구조 · 컬럼 50개 전수 설명 · 실측 분포 · 결측치 처리 방안 · 이상치 · 정제 레시피.** 이 문서 하나로 데이터 전체를 이해할 수 있습니다.
 - [`notebooks/eda.ipynb`](notebooks/eda.ipynb) — 위 리포트의 모든 수치·표·그래프를 재현하는 노트북 (28개 코드 셀)
+- [`reports/PREPROCESSING.md`](reports/PREPROCESSING.md) — **마스터 데이터 전처리 명세.** 결측치 18개 컬럼 처리 내역 · 이상치 삭제/플래그 근거 · 가격 로그 변환. 문서의 모든 수치는 `scripts/build_master.py` 실행 결과에서 자동 생성됩니다.
+
+## 마스터 데이터 생성
+
+```bash
+python scripts/build_master.py
+```
+
+`data/processed/InsightStay_data_cleaned.csv` (840,616행 × 73열) 와 같은 내용의 parquet, 그리고 위 명세서를 만듭니다. `name`·`description` 두 텍스트 컬럼은 용량 때문에 빠져 있으니 필요하면 원본에서 `id` 기준으로 머지하세요.
 
 ## 과제 개요
 
