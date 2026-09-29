@@ -21,6 +21,7 @@ reports/          EDA_REPORT.md                        # EDA 리포트
 
 - [`reports/EDA_REPORT.md`](reports/EDA_REPORT.md) — **데이터 구조 · 컬럼 50개 전수 설명 · 실측 분포 · 결측치 처리 방안 · 이상치 · 정제 레시피.** 이 문서 하나로 데이터 전체를 이해할 수 있습니다.
 - [`notebooks/eda.ipynb`](notebooks/eda.ipynb) — 위 리포트의 모든 수치·표·그래프를 재현하는 노트북 (28개 코드 셀)
+- [`reports/SEGMENTATION.md`](reports/SEGMENTATION.md) — **공급 5층 분류.** 컬럼 3개로 841,626건을 나눈 근거 · 층별 특성 · 전략 방향. 팀 공유용.
 - [`deliverables/PREPROCESSING.md`](deliverables/PREPROCESSING.md) — **마스터 데이터 전처리 명세.** 결측치 18개 컬럼 처리 내역 · 이상치 삭제/플래그 근거 · 가격 로그 변환. 문서의 모든 수치는 `scripts/build_master.py` 실행 결과에서 자동 생성됩니다.
 
 ## 마스터 데이터 생성
