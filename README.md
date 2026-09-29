@@ -31,7 +31,7 @@ reports/          EDA_REPORT.md                        # EDA 리포트
 python scripts/build_master.py
 ```
 
-`deliverables/` 에 최종 CSV(840,616행 × 73열)와 명세서를, `data/processed/` 에 같은 내용의 parquet 을 만듭니다. `name`·`description` 두 텍스트 컬럼은 용량 때문에 빠져 있으니 필요하면 원본에서 `id` 기준으로 머지하세요.
+`deliverables/` 에 최종 CSV(841,626행 × 84열)와 명세서를, `data/processed/` 에 같은 내용의 parquet 을 만듭니다. `name`·`description` 두 텍스트 컬럼은 용량 때문에 빠져 있으니 필요하면 원본에서 `id` 기준으로 머지하세요.
 
 ## 과제 개요
 

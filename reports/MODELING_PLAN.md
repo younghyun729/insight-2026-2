@@ -23,7 +23,7 @@
 | 단계 | 필수 | 산출물 | 상태 |
 |---|:---:|---|---|
 | S. 세그멘테이션 수정 | ✅ | `SEGMENTATION.md` 수정 | ☑ 완료 (9/29) |
-| 0. 정의 컬럼 추가 | ✅ | `scripts/build_master.py` | ☐ |
+| 0. 정의 컬럼 추가 | ✅ | `scripts/build_master.py` | ☑ 완료 (9/29) |
 | 1. 통계 검정 | ✅ | `notebooks/modeling.ipynb` | ☐ |
 | 2. 로지스틱 회귀 | ✅ | 〃 | ☐ |
 | 3. 결정 트리 | ✅ | 〃 | ☐ |

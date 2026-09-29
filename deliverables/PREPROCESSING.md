@@ -1,14 +1,14 @@
 # InsightStay 전처리 명세
 
 > `scripts/build_master.py` 가 생성합니다. 이 문서의 모든 수치는 실행 결과에서 자동으로 채워지므로 본문과 데이터가 어긋나지 않습니다.
-> 산출물: **`deliverables/InsightStay_data_cleaned.csv`** (841,626행 × 75열, 836.7 MB)
-> 같은 내용의 `data/processed/InsightStay_data_cleaned.parquet` (135.5 MB) 을 함께 냅니다. 읽기 속도가 필요하면 이쪽을 쓰세요.
+> 산출물: **`deliverables/InsightStay_data_cleaned.csv`** (841,626행 × 84열, 891.3 MB)
+> 같은 내용의 `data/processed/InsightStay_data_cleaned.parquet` (140.1 MB) 을 함께 냅니다. 읽기 속도가 필요하면 이쪽을 쓰세요.
 
 | 항목 | 값 |
 |---|---|
 | 원본 | `data/raw/InsightStay_data.csv` — 842,655행 × 50열 |
 | 시설 대체본 | `data/raw/시설_분석용_대체본.csv` (bathrooms/bedrooms/beds) |
-| 처리 후 | **841,626행** × 75열 (원본의 99.88%) |
+| 처리 후 | **841,626행** × 84열 (원본의 99.88%) |
 | 삭제 | 1,029행 (0.12%) — 결측 139 + 이상치 890 |
 | 기준일 | 2026-07-22 (데이터 내 `last_review` 최댓값) |
 | 제외 컬럼 | `name`, `description` — 용량의 대부분을 차지하는 자유 텍스트. 필요하면 원본에서 `id` 기준으로 머지 |
@@ -137,6 +137,8 @@
 | `flag_bedrooms_over_20` | `bedrooms > 20` | 75 | 0.01% | 위와 동일 |
 | `flag_dead_stock` | `availability_365 == 0` & `number_of_reviews == 0` | 24,534 | 2.92% | 완전 비활성 재고. 수익성 진단의 대상 |
 | `flag_stale_over_1y` | 마지막 리뷰 1년 초과 | 164,078 | 19.50% | 리뷰가 한 번도 없는 매물은 제외된 수치. 휴면 총량은 `is_active` 로 셀 것 |
+| `flag_calendar_blocked` | `availability_90 == 0` & `number_of_reviews_ltm == 0` | 103,427 | 12.29% | 향후 90일이 전부 닫혔는데 1년간 거래 없음 — **만실이 아니라 막아둔 달력.** 달력 가동률을 쓰면 안 되는 이유 |
+| `flag_minnights_review_conflict` | `minimum_nights >= 180` & `number_of_reviews_ltm > 0` | 239 | 0.03% | 묵은 뒤 설정이 바뀐 매물. `occ_review` 가 과대추정됨 |
 
 **"이상해 보인다"와 "틀렸다"는 다릅니다.** `price < 10` 유령 매물(4,154건)이나 완전 비활성 재고(24,534건)는 삭제 대상보다 훨씬 많지만 전부 남겼습니다. **이게 과제가 찾아야 할 문제 그 자체**이기 때문입니다. 지우면 결론이 사라집니다.
 
@@ -179,7 +181,14 @@
 | `host_meta_is_unknown` | 호스트 메타 5개 컬럼이 비어 있던 행. 슈퍼호스트 비율 계산에서 제외할 것 |
 | `has_price / has_review / is_bookable / is_active` | 세그먼트 플래그 |
 | `days_since_last_review` | 기준일에서 마지막 리뷰까지 경과일 |
-| `flag_*` | 이상치 플래그 9종 — 2.2 표 참고 |
+| `flag_*` | 이상치 플래그 11종 — 2.2 표 참고 |
+| `segment` | 공급 5층 L1~L5. 규칙과 해석은 `reports/SEGMENTATION.md` |
+| `L3_new` | L3 중 호스트 경력 1년 미만 & 누적 리뷰 0 (29,403건). 팔릴 기회가 없었던 신규 매물이라 모델링에서 제외 |
+| `occ_review` | **리뷰 기반 가동률** `min(ltm ÷ 0.5 × max(minimum_nights, 3) ÷ 365, 0.7)`. 달력 가동률 대신 이것을 쓸 것. 상한에 걸린 행 48,364건 |
+| `peer_group` | 동급 그룹 — 도시 · 방 타입 · 인원(8명 이상은 8) · 최소 숙박일 구간(1/2/3/4-7/8-29/30+)을 이어 붙인 키 |
+| `price_rel` | `price ÷ 동급 그룹 중앙값`. source=0 · 가격 보유 · 1인당 1,000€ 플래그 제외 · 그룹 30건 이상만 (630,073건, 1,784개 그룹) |
+| `amenity_rel` | `amenity_count − 동급 그룹 중앙값`. source=0 · 그룹 30건 이상만 (656,491건) |
+| `quote_peak` | 가격 견적 체크인이 6~8월인가. 견적의 89.9%가 성수기라 `price` 는 성수기 가격이다 |
 
 ---
 

@@ -232,6 +232,12 @@ def add_flags(df):
         "flag_bedrooms_over_20": df["bedrooms"] > 20,
         "flag_dead_stock": (df["availability_365"] == 0) & (df["number_of_reviews"] == 0),
         "flag_stale_over_1y": stale > 365,
+        # 향후 90일이 전부 닫혔는데 1년간 거래가 없다 — 만실이 아니라 달력을 막아둔 매물.
+        # 달력 가동률이 수요를 재지 못하는 이유 그 자체라 따로 센다.
+        "flag_calendar_blocked": (df["availability_90"] == 0) & (df["number_of_reviews_ltm"] == 0),
+        # 최소 숙박일이 반년 이상인데 최근 1년 리뷰가 있다. 손님이 묵은 뒤 설정이 바뀐 것으로,
+        # 리뷰 기반 가동률이 이 행에서는 과대추정된다(상한 0.7 에 걸림).
+        "flag_minnights_review_conflict": (df["minimum_nights"] >= 180) & (df["number_of_reviews_ltm"] > 0),
     }
     for k, v in flags.items():
         df[k] = v.fillna(False)
@@ -263,6 +269,68 @@ def log_price(df):
             "skew_after": round(float(np.log1p(v).skew()), 2),
         }
     log("[6] 로그 변환 " + ", ".join("log_" + c for c in cols))
+    return df
+
+
+# ── 6-1. 분석용 정의 컬럼 ─────────────────────────────────────────────────────
+# 리뷰 기반 가동률의 가정. 바꿔도 매물·도시 순위는 거의 그대로다(reports/MODELING_PLAN.md 0단계).
+REVIEW_RATE, MIN_STAY, OCC_CAP = 0.5, 3, 0.7
+PEER_MIN_N = 30
+
+
+def derive_analysis(df):
+    """공급 5층, 리뷰 기반 가동률, 동급 대비 가격·편의시설.
+
+    세 컬럼 모두 팀이 같은 값을 쓰도록 여기서 한 번만 만든다.
+    근거는 reports/SEGMENTATION.md 와 reports/MODELING_PLAN.md 에 있다.
+    """
+    ltm = df["number_of_reviews_ltm"]
+    avail = df["availability_365"]
+    mn = df["minimum_nights"]
+    df["segment"] = np.select(
+        [(avail == 0) & (ltm == 0),
+         (ltm == 0) & (avail > 0) & (mn >= 30),
+         (ltm == 0) & (avail > 0) & (mn < 30),
+         ltm <= 2],
+        ["L1", "L2", "L3", "L4"], "L5")
+
+    # 호스트 경력은 호스트 단위라, 오래된 호스트의 새 매물은 걸러지지 않는다(보수적).
+    tenure = (df["hosts_time_as_host_years"].fillna(0)
+              + df["hosts_time_as_host_months"].fillna(0) / 12)
+    df["L3_new"] = (df["segment"] == "L3") & (tenure < 1) & (df["number_of_reviews"] == 0)
+
+    # 달력의 '막힌 날'은 예약과 구분되지 않으므로 리뷰에서 예약 박수를 역산한다.
+    nights = ltm / REVIEW_RATE * np.maximum(mn, MIN_STAY)
+    df["occ_review"] = np.minimum(nights / 365, OCC_CAP)
+
+    # 동급 그룹 — 최소 숙박일 구간을 넣는 이유는 price 견적이 그 기간으로 조회돼서다.
+    mn_bin = pd.cut(mn, [0, 1, 2, 3, 7, 29, np.inf],
+                    labels=["1", "2", "3", "4-7", "8-29", "30+"]).astype(str)
+    df["peer_group"] = (df["region"] + "|" + df["room_type"] + "|"
+                        + df["accommodates"].clip(upper=8).astype(int).astype(str) + "|" + mn_bin)
+
+    # 기준값은 source=0 만으로 잡는다. source=1 의 가격·편의시설은 과거 시점 값이다.
+    s0 = df["source"] == 0
+    base_p = s0 & df["price"].notna() & ~df["flag_price_per_person_over_1000"]
+    base_a = s0 & df["amenity_count"].notna()
+    gp = df[base_p].groupby("peer_group")["price"].agg(["median", "size"])
+    ga = df[base_a].groupby("peer_group")["amenity_count"].agg(["median", "size"])
+    gp, ga = gp[gp["size"] >= PEER_MIN_N], ga[ga["size"] >= PEER_MIN_N]
+    df["price_rel"] = (df["price"] / df["peer_group"].map(gp["median"])).where(base_p)
+    df["amenity_rel"] = (df["amenity_count"] - df["peer_group"].map(ga["median"])).where(base_a)
+
+    ci = pd.to_datetime(df["price_quote_checkin_date"], errors="coerce")
+    df["quote_peak"] = ci.dt.month.isin([6, 7, 8]).where(ci.notna())
+
+    S["segment_n"] = df["segment"].value_counts().sort_index().to_dict()
+    S["L3_new_n"] = int(df["L3_new"].sum())
+    S["occ_capped_n"] = int((nights / 365 >= OCC_CAP).sum())
+    S["peer_groups_n"] = len(gp)
+    S["price_rel_n"] = int(df["price_rel"].notna().sum())
+    S["amenity_rel_n"] = int(df["amenity_rel"].notna().sum())
+    S["quote_peak_pct"] = round(float(df["quote_peak"].dropna().astype(bool).mean() * 100), 1)
+    log(f"[6-1] 분석 컬럼 — L3_new {S['L3_new_n']:,} / 동급 그룹 {S['peer_groups_n']:,} / "
+        f"price_rel {S['price_rel_n']:,} / 가동률 상한 {S['occ_capped_n']:,}")
     return df
 
 
@@ -475,6 +543,13 @@ NEW_COLS = [
     ("has_price / has_review / is_bookable / is_active", "세그먼트 플래그"),
     ("days_since_last_review", f"기준일에서 마지막 리뷰까지 경과일"),
     ("flag_*", "이상치 플래그 {n_flags}종 — 2.2 표 참고"),
+    ("segment", "공급 5층 L1~L5. 규칙과 해석은 `reports/SEGMENTATION.md`"),
+    ("L3_new", "L3 중 호스트 경력 1년 미만 & 누적 리뷰 0 ({L3_new_n:,}건). 팔릴 기회가 없었던 신규 매물이라 모델링에서 제외"),
+    ("occ_review", "**리뷰 기반 가동률** `min(ltm ÷ 0.5 × max(minimum_nights, 3) ÷ 365, 0.7)`. 달력 가동률 대신 이것을 쓸 것. 상한에 걸린 행 {occ_capped_n:,}건"),
+    ("peer_group", "동급 그룹 — 도시 · 방 타입 · 인원(8명 이상은 8) · 최소 숙박일 구간(1/2/3/4-7/8-29/30+)을 이어 붙인 키"),
+    ("price_rel", "`price ÷ 동급 그룹 중앙값`. source=0 · 가격 보유 · 1인당 1,000€ 플래그 제외 · 그룹 {peer_min_n}건 이상만 ({price_rel_n:,}건, {peer_groups_n:,}개 그룹)"),
+    ("amenity_rel", "`amenity_count − 동급 그룹 중앙값`. source=0 · 그룹 {peer_min_n}건 이상만 ({amenity_rel_n:,}건)"),
+    ("quote_peak", "가격 견적 체크인이 6~8월인가. 견적의 {quote_peak_pct}%가 성수기라 `price` 는 성수기 가격이다"),
 ]
 
 FLAG_DESC = {
@@ -487,6 +562,8 @@ FLAG_DESC = {
     "flag_bedrooms_over_20": ("`bedrooms > 20`", "위와 동일"),
     "flag_dead_stock": ("`availability_365 == 0` & `number_of_reviews == 0`", "완전 비활성 재고. 수익성 진단의 대상"),
     "flag_stale_over_1y": ("마지막 리뷰 1년 초과", "리뷰가 한 번도 없는 매물은 제외된 수치. 휴면 총량은 `is_active` 로 셀 것"),
+    "flag_calendar_blocked": ("`availability_90 == 0` & `number_of_reviews_ltm == 0`", "향후 90일이 전부 닫혔는데 1년간 거래 없음 — **만실이 아니라 막아둔 달력.** 달력 가동률을 쓰면 안 되는 이유"),
+    "flag_minnights_review_conflict": ("`minimum_nights >= 180` & `number_of_reviews_ltm > 0`", "묵은 뒤 설정이 바뀐 매물. `occ_review` 가 과대추정됨"),
 }
 
 
@@ -514,6 +591,7 @@ def write_md(df):
     S["skew_price_before"] = S["log_cols"]["price"]["skew_before"]
     S["skew_price_after"] = S["log_cols"]["price"]["skew_after"]
     S["n_flags"] = len(S["flags"])
+    S["peer_min_n"] = PEER_MIN_N
 
     rows = []
     for col, kind, how in PLAN:
@@ -548,6 +626,7 @@ def main():
     df = fill_missing(df)
     df = add_flags(df)
     df = log_price(df)
+    df = derive_analysis(df)
     S["na_after"] = df.isna().mean().mul(100).round(2).to_dict()
     save(df)
 
