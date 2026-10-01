@@ -25,6 +25,7 @@ reports/          EDA_REPORT.md                        # EDA 리포트
 - [`reports/MODELING_PLAN.md`](reports/MODELING_PLAN.md) — **세그멘테이션 수치 검증 설계.** 분류 결함 수정 · 객단가/가동률 정의 · 검정→분류→트리→회귀 단계별 설계와 진행 상태.
 - [`reports/SEGMENTATION_2x3.md`](reports/SEGMENTATION_2x3.md) — **2×3 세그멘테이션 (source=0).** 최근 1년 리뷰 O/X × 최소 숙박 단기·중기·장기. 축 방어 논리 · 칸별 특징과 painpoint · 전략 방향. 재현은 [`notebooks/segmentation_2x3.ipynb`](notebooks/segmentation_2x3.ipynb).
 - [`reports/SEGMENTATION_2x3_VALIDATION.md`](reports/SEGMENTATION_2x3_VALIDATION.md) — **2×3 수치 검증.** 칸별 근거 강도 · painpoint 검정 · 통합 모델 · 6칸 전체 검증(효과 크기 · 도시별 재현) · 증명된 것과 아닌 것.
+- [`reports/TARGET_4_5.md`](reports/TARGET_4_5.md) — **집중 대상 4·5번 정리.** 왜 이 두 칸인가 · 무엇이 문제인가 · 검증 내용을 쉽게 풀어 쓴 설명 · 진단 알림 기준선과 대상 규모 · 예상 질문과 답.
 - [`reports/MODELING_RESULTS.md`](reports/MODELING_RESULTS.md) — **수치 검증 결과.** 무엇이 증명됐고 무엇이 아닌지, 이전 문서에서 바뀐 결론, **문서 읽는 순서**(7장).
 - [`deliverables/PREPROCESSING.md`](deliverables/PREPROCESSING.md) — **마스터 데이터 전처리 명세.** 결측치 18개 컬럼 처리 내역 · 이상치 삭제/플래그 근거 · 가격 로그 변환. 문서의 모든 수치는 `scripts/build_master.py` 실행 결과에서 자동 생성됩니다.
 
