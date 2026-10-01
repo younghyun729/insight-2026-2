@@ -19,15 +19,43 @@ reports/          EDA_REPORT.md                        # EDA 리포트
 
 ## 분석 산출물
 
-- [`reports/EDA_REPORT.md`](reports/EDA_REPORT.md) — **데이터 구조 · 컬럼 50개 전수 설명 · 실측 분포 · 결측치 처리 방안 · 이상치 · 정제 레시피.** 이 문서 하나로 데이터 전체를 이해할 수 있습니다.
-- [`notebooks/eda.ipynb`](notebooks/eda.ipynb) — 위 리포트의 모든 수치·표·그래프를 재현하는 노트북 (28개 코드 셀)
-- [`reports/SEGMENTATION.md`](reports/SEGMENTATION.md) — **공급 5층 분류.** 컬럼 3개로 841,626건을 나눈 근거 · 층별 특성 · 전략 방향. 팀 공유용.
-- [`reports/MODELING_PLAN.md`](reports/MODELING_PLAN.md) — **세그멘테이션 수치 검증 설계.** 분류 결함 수정 · 객단가/가동률 정의 · 검정→분류→트리→회귀 단계별 설계와 진행 상태.
-- [`reports/SEGMENTATION_2x3.md`](reports/SEGMENTATION_2x3.md) — **2×3 세그멘테이션 (source=0).** 최근 1년 리뷰 O/X × 최소 숙박 단기·중기·장기. 축 방어 논리 · 칸별 특징과 painpoint · 전략 방향. 재현은 [`notebooks/segmentation_2x3.ipynb`](notebooks/segmentation_2x3.ipynb).
-- [`reports/SEGMENTATION_2x3_VALIDATION.md`](reports/SEGMENTATION_2x3_VALIDATION.md) — **2×3 수치 검증.** 칸별 근거 강도 · painpoint 검정 · 통합 모델 · 6칸 전체 검증(효과 크기 · 도시별 재현) · 증명된 것과 아닌 것.
-- [`reports/TARGET_4_5.md`](reports/TARGET_4_5.md) — **집중 대상 4·5번 정리.** 왜 이 두 칸인가 · 무엇이 문제인가 · 검증 내용을 쉽게 풀어 쓴 설명 · 진단 알림 기준선과 대상 규모 · 예상 질문과 답.
-- [`reports/MODELING_RESULTS.md`](reports/MODELING_RESULTS.md) — **수치 검증 결과.** 무엇이 증명됐고 무엇이 아닌지, 이전 문서에서 바뀐 결론, **문서 읽는 순서**(7장).
-- [`deliverables/PREPROCESSING.md`](deliverables/PREPROCESSING.md) — **마스터 데이터 전처리 명세.** 결측치 18개 컬럼 처리 내역 · 이상치 삭제/플래그 근거 · 가격 로그 변환. 문서의 모든 수치는 `scripts/build_master.py` 실행 결과에서 자동 생성됩니다.
+> **현재 기준은 2×3 세그멘테이션입니다** (`source == 0` · 최근 1년 리뷰 O/X × 최소 숙박 단기·중기·장기 → 1~6번 칸). 집중 대상은 **4번(X·단기)과 5번(X·중기)** 입니다.
+
+### 문서 읽는 순서
+
+| 순서 | 문서 | 여기서 얻는 것 |
+|---|---|---|
+| 1 | [`deliverables/PREPROCESSING.md`](deliverables/PREPROCESSING.md) | **전처리.** 결측 · 이상치 · 로그 변환 · 추가된 컬럼(4장). 수치는 `scripts/build_master.py` 실행 결과에서 자동 생성 |
+| 2 | [`reports/EDA_REPORT.md`](reports/EDA_REPORT.md) — 6장 ①③④, 7장 | **EDA 인사이트.** `source == 1`이 과거값 이월인 근거 · 최근 1년 리뷰를 써야 하는 이유 · 최소 숙박 효과 |
+| 3 | [`reports/SEGMENTATION_2x3.md`](reports/SEGMENTATION_2x3.md) | **2×3 세그멘테이션.** source · 리뷰 축 방어 논리 · 1~6번 칸별 특징과 painpoint · 전략 방향 |
+| 4 | [`reports/SEGMENTATION_2x3_VALIDATION.md`](reports/SEGMENTATION_2x3_VALIDATION.md) | **수치 검증.** 칸별 근거 강도 · painpoint 검정 · 통합 모델 · 6칸 전체 검증 · 증명된 것과 아닌 것 |
+| 5 | [`reports/TARGET_4_5.md`](reports/TARGET_4_5.md) | **집중 대상 4·5번.** 검증 내용을 쉽게 풀어 쓴 설명 · 진단 알림 기준선과 대상 규모 · 예상 질문과 답 |
+
+재현 노트북: [`notebooks/eda.ipynb`](notebooks/eda.ipynb) (EDA) · [`notebooks/segmentation_2x3.ipynb`](notebooks/segmentation_2x3.ipynb) (2×3 분석과 검증 전부)
+
+> EDA 리포트는 5층 분류 이전에 쓰여 일부 문장(예: 6장 ④의 "30박+는 비용 요인")이 2×3 결론과 다릅니다. 2×3에서는 30박+ 중 팔리는 쪽(3번)은 보호 대상, 안 팔리는 쪽(6번)만 정리 대상입니다.
+
+### 마스터 데이터에서 2×3 분석에 쓰는 컬럼
+
+| 컬럼 | 뜻 |
+|---|---|
+| `cell` | 2×3 칸 1~6 (`source == 0`만, `source == 1`은 빈 값) |
+| `alert_target` | 진단 알림 대상 — 4·5번 중 기준선(편의시설 −12개 / 가격 1.7배 / 최소 숙박 5박+)에 하나라도 걸리는 매물 (93,525건) |
+| `alert_amenity` · `alert_price` · `alert_minnights` | 기준선별 해당 여부 |
+| `price_rel` · `amenity_rel` · `peer` | 동급(도시 × 방 타입 × 인원) 대비 가격 · 편의시설과 그 그룹 키 |
+| `season_index` | 지역 계절성 지수 (1보다 크면 여름 휴양지) |
+| `new_listing` | 호스트 경력 1년 미만 & 누적 리뷰 0 — 팔릴 기회가 없었던 신규 매물 |
+| `occ_review` | 리뷰 기반 가동률 (달력 가동률 대신 사용) |
+
+정의 전체는 [`PREPROCESSING.md`](deliverables/PREPROCESSING.md) 4장에 있습니다.
+
+### 이전 판 — 5층(L1~L5) 기준
+
+기록으로만 남겨 둡니다. 이 문서들이 쓰는 컬럼(`segment` · `L3_new` · `peer_group`)은 마스터에서 빠졌고, [`notebooks/modeling.ipynb`](notebooks/modeling.ipynb)는 현재 마스터로 다시 돌릴 수 없습니다.
+
+- [`reports/SEGMENTATION.md`](reports/SEGMENTATION.md) — 공급 5층 분류
+- [`reports/MODELING_PLAN.md`](reports/MODELING_PLAN.md) — 5층 검증 설계
+- [`reports/MODELING_RESULTS.md`](reports/MODELING_RESULTS.md) — 5층 검증 결과 (편의시설 항목별 연관분석 · 기대 효과 추정 포함)
 
 ## 마스터 데이터 생성
 
@@ -35,7 +63,7 @@ reports/          EDA_REPORT.md                        # EDA 리포트
 python scripts/build_master.py
 ```
 
-`deliverables/` 에 최종 CSV(841,626행 × 84열)와 명세서를, `data/processed/` 에 같은 내용의 parquet 을 만듭니다. `name`·`description` 두 텍스트 컬럼은 용량 때문에 빠져 있으니 필요하면 원본에서 `id` 기준으로 머지하세요.
+`deliverables/` 에 최종 CSV(841,626행 × 89열)와 명세서를, `data/processed/` 에 같은 내용의 parquet 을 만듭니다. `name`·`description` 두 텍스트 컬럼은 용량 때문에 빠져 있으니 필요하면 원본에서 `id` 기준으로 머지하세요.
 
 ## 과제 개요
 

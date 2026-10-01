@@ -278,59 +278,75 @@ REVIEW_RATE, MIN_STAY, OCC_CAP = 0.5, 3, 0.7
 PEER_MIN_N = 30
 
 
-def derive_analysis(df):
-    """공급 5층, 리뷰 기반 가동률, 동급 대비 가격·편의시설.
+# 진단 알림 기준선 — 결정 트리가 찾은 분기점(−11.25개 · 1.71배 · 4.5박)을 반올림한 값.
+# 근거는 reports/SEGMENTATION_2x3_VALIDATION.md 3-2.
+ALERT_AMENITY, ALERT_PRICE, ALERT_MIN_NIGHTS = -12, 1.7, 5
 
-    세 컬럼 모두 팀이 같은 값을 쓰도록 여기서 한 번만 만든다.
-    근거는 reports/SEGMENTATION.md 와 reports/MODELING_PLAN.md 에 있다.
+
+def derive_analysis(df):
+    """2×3 칸, 리뷰 기반 가동률, 동급 대비 가격·편의시설, 계절성 지수, 진단 알림 대상.
+
+    팀이 같은 값을 쓰도록 여기서 한 번만 만든다. 2×3 은 source=0 에만 매긴다 —
+    source=1 은 과거 시점 값이라 '최근 1년 리뷰'의 기준 시점이 다르다.
+    근거는 reports/SEGMENTATION_2x3.md 와 reports/SEGMENTATION_2x3_VALIDATION.md 에 있다.
     """
     ltm = df["number_of_reviews_ltm"]
-    avail = df["availability_365"]
     mn = df["minimum_nights"]
-    df["segment"] = np.select(
-        [(avail == 0) & (ltm == 0),
-         (ltm == 0) & (avail > 0) & (mn >= 30),
-         (ltm == 0) & (avail > 0) & (mn < 30),
-         ltm <= 2],
-        ["L1", "L2", "L3", "L4"], "L5")
+    s0 = df["source"] == 0
 
-    # 호스트 경력은 호스트 단위라, 오래된 호스트의 새 매물은 걸러지지 않는다(보수적).
-    tenure = (df["hosts_time_as_host_years"].fillna(0)
-              + df["hosts_time_as_host_months"].fillna(0) / 12)
-    df["L3_new"] = (df["segment"] == "L3") & (tenure < 1) & (df["number_of_reviews"] == 0)
+    # 1–3번은 최근 1년 리뷰 있음, 4–6번은 없음. 각각 단기(1–3박) · 중기(4–29박) · 장기(30박+) 순.
+    stay = pd.cut(mn, [0, 3, 29, np.inf], labels=[1, 2, 3]).astype(int)
+    df["cell"] = (stay + np.where(ltm > 0, 0, 3)).where(s0).astype("Int8")
+
+    # 호스트 경력을 모르는 매물은 신규로 보지 않는다. 호스트 단위라 오래된 호스트의 새 매물은 걸러지지 않는다(보수적).
+    df["new_listing"] = s0 & (df["hosts_time_as_host_years"] < 1) & (df["number_of_reviews"] == 0)
 
     # 달력의 '막힌 날'은 예약과 구분되지 않으므로 리뷰에서 예약 박수를 역산한다.
     nights = ltm / REVIEW_RATE * np.maximum(mn, MIN_STAY)
     df["occ_review"] = np.minimum(nights / 365, OCC_CAP)
 
-    # 동급 그룹 — 최소 숙박일 구간을 넣는 이유는 price 견적이 그 기간으로 조회돼서다.
-    mn_bin = pd.cut(mn, [0, 1, 2, 3, 7, 29, np.inf],
-                    labels=["1", "2", "3", "4-7", "8-29", "30+"]).astype(str)
-    df["peer_group"] = (df["region"] + "|" + df["room_type"] + "|"
-                        + df["accommodates"].clip(upper=8).astype(int).astype(str) + "|" + mn_bin)
+    # 동급 그룹 — 최소 숙박일을 키에 넣지 않는다. 넣으면 단기와 중기를 같은 조건에서 비교할 수 없다.
+    df["peer"] = (df["region"] + "|" + df["room_type"] + "|"
+                  + df["accommodates"].clip(upper=8).astype(int).astype(str)).where(s0)
+    peer_n = df.groupby("peer")["id"].transform("size")
+    big = s0 & (peer_n >= PEER_MIN_N)
+    # 가격은 로그의 중앙값으로 비교한다(분포가 오른쪽으로 길다). source=1 의 가격·편의시설은 과거 시점 값이다.
+    lp = np.log(df["price"]).where(s0 & df["price"].notna() & ~df["flag_price_per_person_over_1000"])
+    df["price_rel"] = np.exp(lp - lp.groupby(df["peer"]).transform("median")).where(big)
+    am = df["amenity_count"].where(s0)
+    df["amenity_rel"] = (am - am.groupby(df["peer"]).transform("median")).where(big)
 
-    # 기준값은 source=0 만으로 잡는다. source=1 의 가격·편의시설은 과거 시점 값이다.
-    s0 = df["source"] == 0
-    base_p = s0 & df["price"].notna() & ~df["flag_price_per_person_over_1000"]
-    base_a = s0 & df["amenity_count"].notna()
-    gp = df[base_p].groupby("peer_group")["price"].agg(["median", "size"])
-    ga = df[base_a].groupby("peer_group")["amenity_count"].agg(["median", "size"])
-    gp, ga = gp[gp["size"] >= PEER_MIN_N], ga[ga["size"] >= PEER_MIN_N]
-    df["price_rel"] = (df["price"] / df["peer_group"].map(gp["median"])).where(base_p)
-    df["amenity_rel"] = (df["amenity_count"] - df["peer_group"].map(ga["median"])).where(base_a)
+    # 계절성 지수 — 지역별 (최근 30일 리뷰 × 12) ÷ 최근 1년 리뷰, 최근 1년 리뷰가 있는 source=0 매물 기준.
+    # 기준일이 7월이라 1보다 크면 여름에 수요가 몰리는 지역(휴양지).
+    sold = s0 & (ltm > 0)
+    g = df[sold].groupby("region")
+    season = g["number_of_reviews_l30d"].sum() * 12 / g["number_of_reviews_ltm"].sum()
+    df["season_index"] = df["region"].map(season)
+
+    # 진단 알림 — 동급과 비교할 수 있는 매물만 판정한다(비교 불가는 빈 값).
+    comparable = df["price_rel"].notna() & df["amenity_rel"].notna()
+    df["alert_amenity"] = (df["amenity_rel"] <= ALERT_AMENITY).where(comparable).astype("boolean")
+    df["alert_price"] = (df["price_rel"] > ALERT_PRICE).where(comparable).astype("boolean")
+    df["alert_minnights"] = ((mn >= ALERT_MIN_NIGHTS) & (mn < 30)).where(comparable).astype("boolean")
+    df["alert_target"] = (df["cell"].isin([4, 5]).fillna(False) & comparable
+                          & (df["alert_amenity"] | df["alert_price"] | df["alert_minnights"]).fillna(False))
 
     ci = pd.to_datetime(df["price_quote_checkin_date"], errors="coerce")
     df["quote_peak"] = ci.dt.month.isin([6, 7, 8]).where(ci.notna())
 
-    S["segment_n"] = df["segment"].value_counts().sort_index().to_dict()
-    S["L3_new_n"] = int(df["L3_new"].sum())
+    S["cell_n"] = {int(k): int(v) for k, v in df["cell"].value_counts().sort_index().items()}
+    S["cell_n_txt"] = " · ".join(f"{k}번 {v:,}" for k, v in S["cell_n"].items())
+    S["new_listing_n"] = int(df["new_listing"].sum())
     S["occ_capped_n"] = int((nights / 365 >= OCC_CAP).sum())
-    S["peer_groups_n"] = len(gp)
+    S["peer_groups_n"] = int(df.loc[big, "peer"].nunique())
     S["price_rel_n"] = int(df["price_rel"].notna().sum())
     S["amenity_rel_n"] = int(df["amenity_rel"].notna().sum())
+    S["season_regions_n"] = int(season.size)
+    S["alert_target_n"] = int(df["alert_target"].sum())
+    S["alert_45_comparable_n"] = int((df["cell"].isin([4, 5]).fillna(False) & comparable).sum())
     S["quote_peak_pct"] = round(float(df["quote_peak"].dropna().astype(bool).mean() * 100), 1)
-    log(f"[6-1] 분석 컬럼 — L3_new {S['L3_new_n']:,} / 동급 그룹 {S['peer_groups_n']:,} / "
-        f"price_rel {S['price_rel_n']:,} / 가동률 상한 {S['occ_capped_n']:,}")
+    log(f"[6-1] 분석 컬럼 — 칸 {S['cell_n']} / 신규 {S['new_listing_n']:,} / 동급 그룹 {S['peer_groups_n']:,} / "
+        f"price_rel {S['price_rel_n']:,} / 알림 대상 {S['alert_target_n']:,} / 가동률 상한 {S['occ_capped_n']:,}")
     return df
 
 
@@ -543,12 +559,15 @@ NEW_COLS = [
     ("has_price / has_review / is_bookable / is_active", "세그먼트 플래그"),
     ("days_since_last_review", f"기준일에서 마지막 리뷰까지 경과일"),
     ("flag_*", "이상치 플래그 {n_flags}종 — 2.2 표 참고"),
-    ("segment", "공급 5층 L1~L5. 규칙과 해석은 `reports/SEGMENTATION.md`"),
-    ("L3_new", "L3 중 호스트 경력 1년 미만 & 누적 리뷰 0 ({L3_new_n:,}건). 팔릴 기회가 없었던 신규 매물이라 모델링에서 제외"),
+    ("cell", "**2×3 칸 1~6.** 1·2·3 = 최근 1년 리뷰 있음, 4·5·6 = 없음. 각각 최소 숙박 단기(1–3박) · 중기(4–29박) · 장기(30박+). **source=0 에만** 매기고 source=1 은 빈 값. 건수 {cell_n_txt}. 해석은 `reports/SEGMENTATION_2x3.md`"),
+    ("new_listing", "호스트 경력 1년 미만 & 누적 리뷰 0 ({new_listing_n:,}건, source=0). 팔릴 기회가 없었던 신규 매물이라 모델에서 제외. 호스트 경력을 모르면 신규로 보지 않음"),
     ("occ_review", "**리뷰 기반 가동률** `min(ltm ÷ 0.5 × max(minimum_nights, 3) ÷ 365, 0.7)`. 달력 가동률 대신 이것을 쓸 것. 상한에 걸린 행 {occ_capped_n:,}건"),
-    ("peer_group", "동급 그룹 — 도시 · 방 타입 · 인원(8명 이상은 8) · 최소 숙박일 구간(1/2/3/4-7/8-29/30+)을 이어 붙인 키"),
-    ("price_rel", "`price ÷ 동급 그룹 중앙값`. source=0 · 가격 보유 · 1인당 1,000€ 플래그 제외 · 그룹 {peer_min_n}건 이상만 ({price_rel_n:,}건, {peer_groups_n:,}개 그룹)"),
-    ("amenity_rel", "`amenity_count − 동급 그룹 중앙값`. source=0 · 그룹 {peer_min_n}건 이상만 ({amenity_rel_n:,}건)"),
+    ("peer", "동급 그룹 — 도시 · 방 타입 · 인원(8명 이상은 8)을 이어 붙인 키(source=0). **최소 숙박일은 넣지 않음** — 넣으면 단기와 중기를 같은 조건에서 비교할 수 없다"),
+    ("price_rel", "동급 대비 가격 = `exp(log price − 동급 그룹의 log price 중앙값)`. 1.13 = 동급보다 13% 비쌈. source=0 · 가격 보유 · 1인당 1,000€ 플래그 제외 · 그룹 {peer_min_n}건 이상만 ({price_rel_n:,}건, {peer_groups_n:,}개 그룹)"),
+    ("amenity_rel", "동급 대비 편의시설 = `amenity_count − 동급 그룹 중앙값`. −6 = 6개 적음. source=0 · 그룹 {peer_min_n}건 이상만 ({amenity_rel_n:,}건)"),
+    ("season_index", "지역 계절성 지수 = `(최근 30일 리뷰 × 12) ÷ 최근 1년 리뷰` (지역별, 최근 1년 리뷰가 있는 source=0 매물 기준, {season_regions_n}개 지역). 기준일이 7월이라 1보다 크면 여름 휴양지"),
+    ("alert_amenity / alert_price / alert_minnights", "진단 알림 기준선 해당 여부 — 동급 대비 편의시설 −12개 이하 / 동급 대비 가격 1.7배 초과 / 최소 숙박 5–29박. 동급 비교가 안 되는 매물은 빈 값. 근거는 `reports/SEGMENTATION_2x3_VALIDATION.md` 3-2"),
+    ("alert_target", "**진단 알림 대상** = 4·5번 & 동급 비교 가능 & 위 기준선 중 하나 이상. {alert_target_n:,}건 (비교 가능한 4·5번 {alert_45_comparable_n:,}건 중). 설명은 `reports/TARGET_4_5.md`"),
     ("quote_peak", "가격 견적 체크인이 6~8월인가. 견적의 {quote_peak_pct}%가 성수기라 `price` 는 성수기 가격이다"),
 ]
 

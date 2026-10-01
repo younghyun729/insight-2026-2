@@ -1,14 +1,14 @@
 # InsightStay 전처리 명세
 
 > `scripts/build_master.py` 가 생성합니다. 이 문서의 모든 수치는 실행 결과에서 자동으로 채워지므로 본문과 데이터가 어긋나지 않습니다.
-> 산출물: **`deliverables/InsightStay_data_cleaned.csv`** (841,626행 × 84열, 891.3 MB)
-> 같은 내용의 `data/processed/InsightStay_data_cleaned.parquet` (140.2 MB) 을 함께 냅니다. 읽기 속도가 필요하면 이쪽을 쓰세요.
+> 산출물: **`deliverables/InsightStay_data_cleaned.csv`** (841,626행 × 89열, 906.5 MB)
+> 같은 내용의 `data/processed/InsightStay_data_cleaned.parquet` (140.4 MB) 을 함께 냅니다. 읽기 속도가 필요하면 이쪽을 쓰세요.
 
 | 항목 | 값 |
 |---|---|
 | 원본 | `data/raw/InsightStay_data.csv` — 842,655행 × 50열 |
 | 시설 대체본 | `data/raw/시설_분석용_대체본.csv` (bathrooms/bedrooms/beds) |
-| 처리 후 | **841,626행** × 84열 (원본의 99.88%) |
+| 처리 후 | **841,626행** × 89열 (원본의 99.88%) |
 | 삭제 | 1,029행 (0.12%) — 결측 139 + 이상치 890 |
 | 기준일 | 2026-07-22 (데이터 내 `last_review` 최댓값) |
 | 제외 컬럼 | `name`, `description` — 용량의 대부분을 차지하는 자유 텍스트. 필요하면 원본에서 `id` 기준으로 머지 |
@@ -182,12 +182,15 @@
 | `has_price / has_review / is_bookable / is_active` | 세그먼트 플래그 |
 | `days_since_last_review` | 기준일에서 마지막 리뷰까지 경과일 |
 | `flag_*` | 이상치 플래그 11종 — 2.2 표 참고 |
-| `segment` | 공급 5층 L1~L5. 규칙과 해석은 `reports/SEGMENTATION.md` |
-| `L3_new` | L3 중 호스트 경력 1년 미만 & 누적 리뷰 0 (29,403건). 팔릴 기회가 없었던 신규 매물이라 모델링에서 제외 |
+| `cell` | **2×3 칸 1~6.** 1·2·3 = 최근 1년 리뷰 있음, 4·5·6 = 없음. 각각 최소 숙박 단기(1–3박) · 중기(4–29박) · 장기(30박+). **source=0 에만** 매기고 source=1 은 빈 값. 건수 1번 418,900 · 2번 43,293 · 3번 9,562 · 4번 144,645 · 5번 33,369 · 6번 28,361. 해석은 `reports/SEGMENTATION_2x3.md` |
+| `new_listing` | 호스트 경력 1년 미만 & 누적 리뷰 0 (29,487건, source=0). 팔릴 기회가 없었던 신규 매물이라 모델에서 제외. 호스트 경력을 모르면 신규로 보지 않음 |
 | `occ_review` | **리뷰 기반 가동률** `min(ltm ÷ 0.5 × max(minimum_nights, 3) ÷ 365, 0.7)`. 달력 가동률 대신 이것을 쓸 것. 상한에 걸린 행 48,364건 |
-| `peer_group` | 동급 그룹 — 도시 · 방 타입 · 인원(8명 이상은 8) · 최소 숙박일 구간(1/2/3/4-7/8-29/30+)을 이어 붙인 키 |
-| `price_rel` | `price ÷ 동급 그룹 중앙값`. source=0 · 가격 보유 · 1인당 1,000€ 플래그 제외 · 그룹 30건 이상만 (630,073건, 1,784개 그룹) |
-| `amenity_rel` | `amenity_count − 동급 그룹 중앙값`. source=0 · 그룹 30건 이상만 (656,491건) |
+| `peer` | 동급 그룹 — 도시 · 방 타입 · 인원(8명 이상은 8)을 이어 붙인 키(source=0). **최소 숙박일은 넣지 않음** — 넣으면 단기와 중기를 같은 조건에서 비교할 수 없다 |
+| `price_rel` | 동급 대비 가격 = `exp(log price − 동급 그룹의 log price 중앙값)`. 1.13 = 동급보다 13% 비쌈. source=0 · 가격 보유 · 1인당 1,000€ 플래그 제외 · 그룹 30건 이상만 (646,450건, 653개 그룹) |
+| `amenity_rel` | 동급 대비 편의시설 = `amenity_count − 동급 그룹 중앙값`. −6 = 6개 적음. source=0 · 그룹 30건 이상만 (672,876건) |
+| `season_index` | 지역 계절성 지수 = `(최근 30일 리뷰 × 12) ÷ 최근 1년 리뷰` (지역별, 최근 1년 리뷰가 있는 source=0 매물 기준, 53개 지역). 기준일이 7월이라 1보다 크면 여름 휴양지 |
+| `alert_amenity / alert_price / alert_minnights` | 진단 알림 기준선 해당 여부 — 동급 대비 편의시설 −12개 이하 / 동급 대비 가격 1.7배 초과 / 최소 숙박 5–29박. 동급 비교가 안 되는 매물은 빈 값. 근거는 `reports/SEGMENTATION_2x3_VALIDATION.md` 3-2 |
+| `alert_target` | **진단 알림 대상** = 4·5번 & 동급 비교 가능 & 위 기준선 중 하나 이상. 93,525건 (비교 가능한 4·5번 163,676건 중). 설명은 `reports/TARGET_4_5.md` |
 | `quote_peak` | 가격 견적 체크인이 6~8월인가. 견적의 89.9%가 성수기라 `price` 는 성수기 가격이다 |
 
 ---

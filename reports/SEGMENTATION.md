@@ -1,5 +1,8 @@
 # 공급 5층 분류 — 데이터 근거와 전략 방향
 
+> ⚠️ **이전 판 — 5층(L1~L5) 기준입니다.** 현재 기준은 2×3 세그멘테이션입니다: [SEGMENTATION_2x3.md](SEGMENTATION_2x3.md) · [검증](SEGMENTATION_2x3_VALIDATION.md) · [집중 대상 4·5번](TARGET_4_5.md).
+> 이 문서가 쓰는 `segment` · `L3_new` · `peer_group` 컬럼은 마스터 데이터에서 빠졌고, `price_rel` · `amenity_rel`은 정의가 바뀌었습니다(동급 그룹에서 최소 숙박 구간을 뺌). 그래서 [`notebooks/modeling.ipynb`](../notebooks/modeling.ipynb)는 현재 마스터로 다시 돌릴 수 없습니다. 기록으로만 참고하세요.
+
 > 전처리 완료된 **841,626건**을 컬럼 3개로 5개 층에 나눴습니다. 겹침 0, 미분류 0.
 > 각 층이 왜 그렇게 나뉘었고 어떤 성격인지, 전략을 어느 방향으로 잡을지 정리했습니다.
 > 데이터: `deliverables/InsightStay_data_cleaned.csv` · 전처리 근거: [PREPROCESSING.md](../deliverables/PREPROCESSING.md)

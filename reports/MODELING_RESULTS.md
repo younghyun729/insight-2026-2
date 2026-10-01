@@ -1,5 +1,8 @@
 # 세그멘테이션 수치 검증 — 결과
 
+> ⚠️ **이전 판 — 5층(L1~L5) 기준입니다.** 현재 기준은 2×3 세그멘테이션입니다: [SEGMENTATION_2x3.md](SEGMENTATION_2x3.md) · [검증](SEGMENTATION_2x3_VALIDATION.md) · [집중 대상 4·5번](TARGET_4_5.md).
+> 이 문서가 쓰는 `segment` · `L3_new` · `peer_group` 컬럼은 마스터 데이터에서 빠졌고, `price_rel` · `amenity_rel`은 정의가 바뀌었습니다(동급 그룹에서 최소 숙박 구간을 뺌). 그래서 [`notebooks/modeling.ipynb`](../notebooks/modeling.ipynb)는 현재 마스터로 다시 돌릴 수 없습니다. 기록으로만 참고하세요.
+
 > [MODELING_PLAN.md](MODELING_PLAN.md)의 설계대로 돌린 결과를 한곳에 모았습니다. 설계의 이유와 세부 조건은 설계 문서에, 재현 코드는 [`notebooks/modeling.ipynb`](../notebooks/modeling.ipynb)에 있습니다.
 > 이 문서의 범위는 **"분석 방향이 수치로 증명되는가"** 까지입니다. 전략과 기대 효과는 팀 논의 후 정합니다.
 > 기준 데이터: `scripts/build_master.py` 실행 결과 841,626행 · 작성 2026-09-29
