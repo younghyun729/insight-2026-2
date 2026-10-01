@@ -23,6 +23,7 @@ reports/          EDA_REPORT.md                        # EDA 리포트
 - [`notebooks/eda.ipynb`](notebooks/eda.ipynb) — 위 리포트의 모든 수치·표·그래프를 재현하는 노트북 (28개 코드 셀)
 - [`reports/SEGMENTATION.md`](reports/SEGMENTATION.md) — **공급 5층 분류.** 컬럼 3개로 841,626건을 나눈 근거 · 층별 특성 · 전략 방향. 팀 공유용.
 - [`reports/MODELING_PLAN.md`](reports/MODELING_PLAN.md) — **세그멘테이션 수치 검증 설계.** 분류 결함 수정 · 객단가/가동률 정의 · 검정→분류→트리→회귀 단계별 설계와 진행 상태.
+- [`reports/SEGMENTATION_2x3.md`](reports/SEGMENTATION_2x3.md) — **2×3 세그멘테이션 (source=0).** 최근 1년 리뷰 O/X × 최소 숙박 단기·중기·장기. 축 방어 논리 · 칸별 painpoint 검정 · 전략 방향. 재현은 [`notebooks/segmentation_2x3.ipynb`](notebooks/segmentation_2x3.ipynb).
 - [`reports/MODELING_RESULTS.md`](reports/MODELING_RESULTS.md) — **수치 검증 결과.** 무엇이 증명됐고 무엇이 아닌지, 이전 문서에서 바뀐 결론, **문서 읽는 순서**(7장).
 - [`deliverables/PREPROCESSING.md`](deliverables/PREPROCESSING.md) — **마스터 데이터 전처리 명세.** 결측치 18개 컬럼 처리 내역 · 이상치 삭제/플래그 근거 · 가격 로그 변환. 문서의 모든 수치는 `scripts/build_master.py` 실행 결과에서 자동 생성됩니다.
 
