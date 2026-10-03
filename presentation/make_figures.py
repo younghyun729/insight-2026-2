@@ -111,6 +111,23 @@ for x0, x1, lab, c in [(-0.4, 2.4, "단기 1–3박", BLUE), (2.6, 7.4, "중기 
 ax.set_title("최소 숙박 4박부터 '1년 동안 한 번도 안 팔린' 매물이 계단처럼 늘어난다", loc="left", pad=26)
 save(fig, "03_minnights_norev.png", "무거래율 = 최근 1년 리뷰 0건 비율 (source 0, 678,130건)")
 
+# ── 03b. 4박 꺾임 — 1–3박 범위를 벗어나는 지점 ───────────────────────
+bins = [0, 1, 2, 3, 4, 5, 6, 7, 29]
+labs = ["1박", "2박", "3박", "4박", "5박", "6박", "7박", "8–29박"]
+r = s.groupby(pd.cut(s["minimum_nights"], bins, labels=labs))["norev"].mean() * 100
+lo, hi = r.iloc[:3].min(), r.iloc[:3].max()
+fig, ax = plt.subplots(figsize=(8, 4.2))
+ax.axhspan(lo, hi, color=LIGHT, alpha=0.7, zorder=0)
+ax.text(-0.4, 66, f"회색 띠 = 1–3박 범위 ({lo:.0f}–{hi:.0f}%)", ha="left", va="center", fontsize=9.5, color=INK2)
+bars = ax.bar(range(len(r)), r.values, color=[BLUE] * 3 + [ORANGE] * 5, width=0.66, zorder=2)
+bar_labels(ax, bars, lambda v: f"{v:.0f}%", size=10)
+ax.axvline(2.5, color=INK2, lw=1, ls="--", zorder=1)
+ax.text(2.6, 66, "4박부터", ha="left", va="center", fontsize=10, color=INK, fontweight="bold")
+ax.set_xticks(range(len(r)), labs)
+ax.set_yticks([]); ax.set_ylim(0, 72); ax.grid(False)
+ax.set_title("1–3박은 평평하다가, 4박부터 안 팔리는 비율이 범위를 벗어난다", loc="left")
+save(fig, "03b_minnights_break.png", "무거래율 = 최근 1년 리뷰 0건 비율 (source 0, 최소 숙박 1–29박)")
+
 # ── 04. 2×3 칸 ──────────────────────────────────────────────────────
 cnt = s["cell"].astype(int).value_counts()
 info = {
