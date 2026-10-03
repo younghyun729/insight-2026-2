@@ -6,3 +6,4 @@ deliverables/*.csv
 .ipynb_checkpoints/
 __pycache__/
 data/long_stay/
+*.zip

@@ -13,6 +13,7 @@ deliverables/     InsightStay_data_cleaned.csv         # ★ 팀 공유용 최�
 notebooks/        eda.ipynb · segmentation_2x3.ipynb · midstay_min_nights.ipynb
 scripts/          build_master.py                      # 마스터 데이터 생성
                   verify_gmv.py                        # 거래액·숙박일수 추정 검증
+                  fetch_strategy3.py                   # 전략 ③ 입력 데이터 받기
 reports/          EDA_REPORT.md                        # 전처리 요약 · EDA · 세그먼트
                   SEGMENTATION_2x3*.md · MIDSTAY_MIN_NIGHTS.md
 ```
@@ -64,6 +65,17 @@ python scripts/verify_gmv.py
 ```
 
 리뷰 수로 역산한 숙박일수 · 거래액이 가정(리뷰 작성률 · 평균 숙박일 · 상한)에 얼마나 민감한지, 달력 · 견적 가격과 맞는지 확인합니다. `source == 0` · 가격 보유 매물 기준이고, 설정은 파일 위쪽 상수에서 바꿉니다.
+
+### 전략 ③ 입력 데이터
+
+[`notebooks/7개지역_장기상품_전체분석코드.ipynb`](notebooks/7개지역_장기상품_전체분석코드.ipynb)는 공통분석표 · 군집 · 시설 후보 · 회귀 결과 등 미리 계산한 입력 폴더 4개를 읽습니다. 용량(107MB)이 커서 git 대신 [GitHub Release](https://github.com/younghyun729/insight-2026-2/releases/tag/strategy3-data-20261003)에 올려 두었습니다.
+
+```bash
+python scripts/fetch_strategy3.py                 # Release에서 받아 data/long_stay/outputs/에 풀기
+python scripts/fetch_strategy3.py --zip 전략3.zip  # 이미 받은 zip이 있을 때
+```
+
+맥에서 만든 zip이라 일반 압축 해제 도구로 풀면 한글 폴더 이름이 노트북 경로와 맞지 않을 수 있습니다. 위 스크립트로 푸세요.
 
 ## 마스터 데이터 생성
 
