@@ -12,6 +12,7 @@ deliverables/     InsightStay_data_cleaned.csv         # ★ 팀 공유용 최�
                   PREPROCESSING.md                     # ★ 전처리 명세
 notebooks/        eda.ipynb · segmentation_2x3.ipynb · midstay_min_nights.ipynb
 scripts/          build_master.py                      # 마스터 데이터 생성
+                  verify_gmv.py                        # 거래액·숙박일수 추정 검증
 reports/          EDA_REPORT.md                        # 전처리 요약 · EDA · 세그먼트
                   SEGMENTATION_2x3*.md · MIDSTAY_MIN_NIGHTS.md
 ```
@@ -32,7 +33,6 @@ reports/          EDA_REPORT.md                        # 전처리 요약 · EDA
 | 3 | [`reports/SEGMENTATION_2x3.md`](reports/SEGMENTATION_2x3.md) | **2×3 세그멘테이션.** 1~6번 칸별 특징과 painpoint |
 | 4 | [`reports/SEGMENTATION_2x3_VALIDATION.md`](reports/SEGMENTATION_2x3_VALIDATION.md) | **수치 검증.** 칸별 근거 강도 · 통합 모델 · 6칸 전체 검증 |
 | 5 | [`reports/MIDSTAY_MIN_NIGHTS.md`](reports/MIDSTAY_MIN_NIGHTS.md) | **전략 ① 근거.** 중기 매물(2·5번)이 최소 숙박을 3박 이하로 줄여야 하는 이유 · 같은 호스트 안 비교 · 2번의 끊김 위험 · 기대 효과 범위 |
-| (참고) | [`reports/TARGET_4_5.md`](reports/TARGET_4_5.md) | 전략 재편 이전의 4·5번 진단 알림안 |
 
 ### 발표 준비 — [`presentation/`](presentation/)
 
@@ -57,13 +57,13 @@ reports/          EDA_REPORT.md                        # 전처리 요약 · EDA
 
 정의 전체는 [`PREPROCESSING.md`](deliverables/PREPROCESSING.md) 4장에 있습니다.
 
-### 이전 판 — 5층(L1~L5) 기준
+### 거래액 추정 검증
 
-기록으로만 남겨 둡니다. 이 문서들이 쓰는 컬럼(`segment` · `L3_new` · `peer_group`)은 마스터에서 빠졌고, [`notebooks/modeling.ipynb`](notebooks/modeling.ipynb)는 현재 마스터로 다시 돌릴 수 없습니다.
+```bash
+python scripts/verify_gmv.py
+```
 
-- [`reports/SEGMENTATION.md`](reports/SEGMENTATION.md) — 공급 5층 분류
-- [`reports/MODELING_PLAN.md`](reports/MODELING_PLAN.md) — 5층 검증 설계
-- [`reports/MODELING_RESULTS.md`](reports/MODELING_RESULTS.md) — 5층 검증 결과 (편의시설 항목별 연관분석 · 기대 효과 추정 포함)
+리뷰 수로 역산한 숙박일수 · 거래액이 가정(리뷰 작성률 · 평균 숙박일 · 상한)에 얼마나 민감한지, 달력 · 견적 가격과 맞는지 확인합니다. `source == 0` · 가격 보유 매물 기준이고, 설정은 파일 위쪽 상수에서 바꿉니다.
 
 ## 마스터 데이터 생성
 
