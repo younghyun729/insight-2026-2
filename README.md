@@ -34,6 +34,13 @@ reports/          EDA_REPORT.md                        # 전처리 요약 · EDA
 | 5 | [`reports/MIDSTAY_MIN_NIGHTS.md`](reports/MIDSTAY_MIN_NIGHTS.md) | **전략 ① 근거.** 중기 매물(2·5번)이 최소 숙박을 3박 이하로 줄여야 하는 이유 · 같은 호스트 안 비교 · 2번의 끊김 위험 · 기대 효과 범위 |
 | (참고) | [`reports/TARGET_4_5.md`](reports/TARGET_4_5.md) | 전략 재편 이전의 4·5번 진단 알림안 |
 
+### 발표 준비 — [`presentation/`](presentation/)
+
+| 문서 | 내용 |
+|---|---|
+| [`presentation/DRAFT.md`](presentation/DRAFT.md) | 세부 내용을 채운 발표 초안 (전략 ② · ③은 팀원 작성 자리) |
+| [`presentation/figures/`](presentation/figures/) | 발표용 차트 12장 — `python presentation/make_figures.py`로 다시 생성 |
+
 재현 노트북: [`notebooks/eda.ipynb`](notebooks/eda.ipynb) (원본 탐색) · [`notebooks/segmentation_2x3.ipynb`](notebooks/segmentation_2x3.ipynb) (2×3 분석과 검증) · [`notebooks/midstay_min_nights.ipynb`](notebooks/midstay_min_nights.ipynb) (중기 매물 최소 숙박)
 
 ### 마스터 데이터에서 2×3 분석에 쓰는 컬럼
