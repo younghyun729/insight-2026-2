@@ -317,7 +317,8 @@ def derive_analysis(df):
     df["amenity_rel"] = (am - am.groupby(df["peer"]).transform("median")).where(big)
 
     # 계절성 지수 — 지역별 (최근 30일 리뷰 × 12) ÷ 최근 1년 리뷰, 최근 1년 리뷰가 있는 source=0 매물 기준.
-    # 기준일이 7월이라 1보다 크면 여름에 수요가 몰리는 지역(휴양지).
+    # 수집 시점(지역마다 6월 중순~7월 하순)이 여름이라 1보다 크면 여름에 수요가 몰리는 지역(휴양지).
+    # 최근 30일 창은 지역마다 수집일 기준이라 날짜가 조금씩 다르다.
     sold = s0 & (ltm > 0)
     g = df[sold].groupby("region")
     season = g["number_of_reviews_l30d"].sum() * 12 / g["number_of_reviews_ltm"].sum()
@@ -382,7 +383,8 @@ MD_TEMPLATE = """# InsightStay 전처리 명세
 | 시설 대체본 | `data/raw/시설_분석용_대체본.csv` (bathrooms/bedrooms/beds) |
 | 처리 후 | **{n_final:,}행** × {n_cols}열 (원본의 {pct_kept:.2f}%) |
 | 삭제 | {drop_total:,}행 ({pct_dropped:.2f}%) — 결측 {drop_miss_total:,} + 이상치 {drop_out_total:,} |
-| 기준일 | {ref_date} (데이터 내 `last_review` 최댓값) |
+| 수집 시점 | 지역마다 2026-06-15 ~ 07-21 (각 지역의 `last_review` 최댓값 ≈ 첫 가격 견적 체크인 날짜). 최근 1년 리뷰 등은 각 지역 수집일 기준 값 |
+| 경과일 계산 기준일 | {ref_date} (전체 `last_review` 최댓값). `days_since_last_review` 에만 쓰며, 일찍 수집된 지역은 최대 약 5주 길게 잡힘 |
 | 제외 컬럼 | `name`, `description` — 용량의 대부분을 차지하는 자유 텍스트. 필요하면 원본에서 `id` 기준으로 머지 |
 
 **처리 순서** — 시설 대체본 병합 → 파생 컬럼 → 행 삭제(결측·이상치) → 결측 채움 → 이상치 플래그 → 가격 로그 변환.
@@ -557,7 +559,7 @@ NEW_COLS = [
     ("host_listings_is_unknown", "`host_listings_total == 0` 이던 행"),
     ("host_meta_is_unknown", "호스트 메타 5개 컬럼이 비어 있던 행. 슈퍼호스트 비율 계산에서 제외할 것"),
     ("has_price / has_review / is_bookable / is_active", "세그먼트 플래그"),
-    ("days_since_last_review", f"기준일에서 마지막 리뷰까지 경과일"),
+    ("days_since_last_review", "{ref_date} 에서 마지막 리뷰까지 경과일. 지역마다 수집일이 달라(06-15 ~ 07-21) 일찍 수집된 지역은 최대 약 5주 길게 잡힘"),
     ("flag_*", "이상치 플래그 {n_flags}종 — 2.2 표 참고"),
     ("cell", "**2×3 칸 1~6.** 1·2·3 = 최근 1년 리뷰 있음, 4·5·6 = 없음. 각각 최소 숙박 단기(1–3박) · 중기(4–29박) · 장기(30박+). **source=0 에만** 매기고 source=1 은 빈 값. 건수 {cell_n_txt}. 해석은 `reports/SEGMENTATION_2x3.md`"),
     ("new_listing", "호스트 경력 1년 미만 & 누적 리뷰 0 ({new_listing_n:,}건, source=0). 팔릴 기회가 없었던 신규 매물이라 모델에서 제외. 호스트 경력을 모르면 신규로 보지 않음"),
@@ -565,7 +567,7 @@ NEW_COLS = [
     ("peer", "동급 그룹 — 도시 · 방 타입 · 인원(8명 이상은 8)을 이어 붙인 키(source=0). **최소 숙박일은 넣지 않음** — 넣으면 단기와 중기를 같은 조건에서 비교할 수 없다"),
     ("price_rel", "동급 대비 가격 = `exp(log price − 동급 그룹의 log price 중앙값)`. 1.13 = 동급보다 13% 비쌈. source=0 · 가격 보유 · 1인당 1,000€ 플래그 제외 · 그룹 {peer_min_n}건 이상만 ({price_rel_n:,}건, {peer_groups_n:,}개 그룹)"),
     ("amenity_rel", "동급 대비 편의시설 = `amenity_count − 동급 그룹 중앙값`. −6 = 6개 적음. source=0 · 그룹 {peer_min_n}건 이상만 ({amenity_rel_n:,}건)"),
-    ("season_index", "지역 계절성 지수 = `(최근 30일 리뷰 × 12) ÷ 최근 1년 리뷰` (지역별, 최근 1년 리뷰가 있는 source=0 매물 기준, {season_regions_n}개 지역). 기준일이 7월이라 1보다 크면 여름 휴양지"),
+    ("season_index", "지역 계절성 지수 = `(최근 30일 리뷰 × 12) ÷ 최근 1년 리뷰` (지역별, 최근 1년 리뷰가 있는 source=0 매물 기준, {season_regions_n}개 지역). 수집 시점(지역마다 6월 중순~7월 하순)이 여름이라 1보다 크면 여름 휴양지"),
     ("alert_amenity / alert_price / alert_minnights", "진단 알림 기준선 해당 여부 — 동급 대비 편의시설 −12개 이하 / 동급 대비 가격 1.7배 초과 / 최소 숙박 5–29박. 동급 비교가 안 되는 매물은 빈 값. 근거는 `reports/SEGMENTATION_2x3_VALIDATION.md` 3-2"),
     ("alert_target", "**진단 알림 대상** = 4·5번 & 동급 비교 가능 & 위 기준선 중 하나 이상. {alert_target_n:,}건 (비교 가능한 4·5번 {alert_45_comparable_n:,}건 중). 설명은 `reports/TARGET_4_5.md`"),
     ("quote_peak", "가격 견적 체크인이 6~8월인가. 견적의 {quote_peak_pct}%가 성수기라 `price` 는 성수기 가격이다"),
