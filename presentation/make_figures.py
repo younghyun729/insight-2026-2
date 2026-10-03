@@ -127,7 +127,9 @@ for xv, lab in [(2.5, "4박부터"), (7.5, "30박부터")]:
 ax.set_xticks(range(len(r)), labs, fontsize=10)
 ax.set_yticks([]); ax.set_ylim(0, 100); ax.grid(False)
 ax.set_title("1–3박은 평평하다가, 4박부터 팔리는 비율이 떨어진다", loc="left")
-save(fig, "03b_minnights_break.png", "거래율 = 최근 1년 리뷰 1건 이상 비율 (source 0, 678,130건)")
+ax.text(0, -0.14, "거래율 = 최근 1년 리뷰 1건 이상 비율 (source 0, 678,130건)", transform=ax.transAxes,
+        fontsize=9, color=MUTED, ha="left", va="top")
+save(fig, "03b_minnights_break.png")
 
 # ── 04. 2×3 칸 ──────────────────────────────────────────────────────
 cnt = s["cell"].astype(int).value_counts()
