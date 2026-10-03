@@ -10,30 +10,31 @@ data/raw/         InsightStay_data.csv                 # 원본 (git 제외)
 data/processed/   InsightStay_data_cleaned.parquet     # 마스터 데이터 (git 제외)
 deliverables/     InsightStay_data_cleaned.csv         # ★ 팀 공유용 최종 산출물
                   PREPROCESSING.md                     # ★ 전처리 명세
-notebooks/        eda.ipynb                            # EDA 노트북
+notebooks/        eda.ipynb · segmentation_2x3.ipynb · midstay_min_nights.ipynb
 scripts/          build_master.py                      # 마스터 데이터 생성
-reports/          EDA_REPORT.md                        # EDA 리포트
+reports/          EDA_REPORT.md                        # 전처리 요약 · EDA · 세그먼트
+                  SEGMENTATION_2x3*.md · MIDSTAY_MIN_NIGHTS.md
 ```
 
 원본 CSV와 parquet은 용량 문제(약 1GB)로 git에서 제외되어 있습니다. 새 환경에서는 `data/raw/InsightStay_data.csv`를 직접 복사해 두고 노트북을 처음부터 실행하면 `data/processed/`가 재생성됩니다. 노트북은 실행 위치와 무관하게 `README.md`가 있는 폴더를 프로젝트 루트로 잡아 경로를 맞춥니다.
 
 ## 분석 산출물
 
-> **현재 기준은 2×3 세그멘테이션입니다** (`source == 0` · 최근 1년 리뷰 O/X × 최소 숙박 단기·중기·장기 → 1~6번 칸). 집중 대상은 **4번(X·단기)과 5번(X·중기)** 입니다.
+> **현재 기준은 2×3 세그멘테이션입니다** (`source == 0` · 최근 1년 리뷰 O/X × 최소 숙박 단기·중기·장기 → 1~6번 칸).
+> **발표 전략 흐름:** ① 중기 매물(2·5번) 최소 숙박 하향 → ② 신규 매물 처방 → ③ 장기 숙소(3·6번) 타겟팅
 
 ### 문서 읽는 순서
 
 | 순서 | 문서 | 여기서 얻는 것 |
 |---|---|---|
-| 1 | [`deliverables/PREPROCESSING.md`](deliverables/PREPROCESSING.md) | **전처리.** 결측 · 이상치 · 로그 변환 · 추가된 컬럼(4장). 수치는 `scripts/build_master.py` 실행 결과에서 자동 생성 |
-| 2 | [`reports/EDA_REPORT.md`](reports/EDA_REPORT.md) — 6장 ①③④, 7장 | **EDA 인사이트.** `source == 1`이 과거값 이월인 근거 · 최근 1년 리뷰를 써야 하는 이유 · 최소 숙박 효과 |
-| 3 | [`reports/SEGMENTATION_2x3.md`](reports/SEGMENTATION_2x3.md) | **2×3 세그멘테이션.** source · 리뷰 축 방어 논리 · 1~6번 칸별 특징과 painpoint · 전략 방향 |
-| 4 | [`reports/SEGMENTATION_2x3_VALIDATION.md`](reports/SEGMENTATION_2x3_VALIDATION.md) | **수치 검증.** 칸별 근거 강도 · painpoint 검정 · 통합 모델 · 6칸 전체 검증 · 증명된 것과 아닌 것 |
-| 5 | [`reports/TARGET_4_5.md`](reports/TARGET_4_5.md) | **집중 대상 4·5번.** 검증 내용을 쉽게 풀어 쓴 설명 · 진단 알림 기준선과 대상 규모 · 예상 질문과 답 |
+| 1 | [`deliverables/PREPROCESSING.md`](deliverables/PREPROCESSING.md) | **전처리 명세.** 결측 · 이상치 · 로그 변환 · 추가된 컬럼(4장). 수치는 `scripts/build_master.py` 실행 결과에서 자동 생성 |
+| 2 | [`reports/EDA_REPORT.md`](reports/EDA_REPORT.md) | **전처리 요약 → EDA → 세그먼트를 한 흐름으로.** `source == 0`만 쓰는 근거(3장) · 최근 1년 리뷰 수를 쓰는 근거(4장) · 최소 숙박 경계(5장) · 칸에서 전략으로(7장) |
+| 3 | [`reports/SEGMENTATION_2x3.md`](reports/SEGMENTATION_2x3.md) | **2×3 세그멘테이션.** 1~6번 칸별 특징과 painpoint |
+| 4 | [`reports/SEGMENTATION_2x3_VALIDATION.md`](reports/SEGMENTATION_2x3_VALIDATION.md) | **수치 검증.** 칸별 근거 강도 · 통합 모델 · 6칸 전체 검증 |
+| 5 | [`reports/MIDSTAY_MIN_NIGHTS.md`](reports/MIDSTAY_MIN_NIGHTS.md) | **전략 ① 근거.** 중기 매물(2·5번)이 최소 숙박을 3박 이하로 줄여야 하는 이유 · 같은 호스트 안 비교 · 2번의 끊김 위험 · 기대 효과 범위 |
+| (참고) | [`reports/TARGET_4_5.md`](reports/TARGET_4_5.md) | 전략 재편 이전의 4·5번 진단 알림안 |
 
-재현 노트북: [`notebooks/eda.ipynb`](notebooks/eda.ipynb) (EDA) · [`notebooks/segmentation_2x3.ipynb`](notebooks/segmentation_2x3.ipynb) (2×3 분석과 검증 전부)
-
-> EDA 리포트는 5층 분류 이전에 쓰여 일부 문장(예: 6장 ④의 "30박+는 비용 요인")이 2×3 결론과 다릅니다. 2×3에서는 30박+ 중 팔리는 쪽(3번)은 보호 대상, 안 팔리는 쪽(6번)만 정리 대상입니다.
+재현 노트북: [`notebooks/eda.ipynb`](notebooks/eda.ipynb) (원본 탐색) · [`notebooks/segmentation_2x3.ipynb`](notebooks/segmentation_2x3.ipynb) (2×3 분석과 검증) · [`notebooks/midstay_min_nights.ipynb`](notebooks/midstay_min_nights.ipynb) (중기 매물 최소 숙박)
 
 ### 마스터 데이터에서 2×3 분석에 쓰는 컬럼
 

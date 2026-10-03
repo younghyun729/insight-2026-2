@@ -4,6 +4,8 @@
 > 칸 전체 설명은 [SEGMENTATION_2x3.md](SEGMENTATION_2x3.md), 검정 표 원본은 [SEGMENTATION_2x3_VALIDATION.md](SEGMENTATION_2x3_VALIDATION.md)에 있습니다.
 > 대상: `source == 0` 678,130건 · 작성 2026-10-01
 
+> **2026-10-03 전략 재편** — 발표 전략은 ① 중기 매물(2·5번) 최소 숙박 하향 ② 신규 매물 처방 ③ 장기 숙소 타겟팅으로 바뀌었습니다. 5번의 근거는 [MIDSTAY_MIN_NIGHTS.md](MIDSTAY_MIN_NIGHTS.md)가 이어받아 보강했고, 이 문서의 4번 내용은 참고로 남깁니다.
+
 ---
 
 ## 한 줄 요약
