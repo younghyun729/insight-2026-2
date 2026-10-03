@@ -65,18 +65,18 @@ u = s[s["stay"] != "장기"].copy()
 metrics = {
     "가격 결측": lambda g: g["price"].isna().mean(),
     "예약 가능일 0": lambda g: (g["availability_365"] == 0).mean(),
-    "최근 1년 리뷰 0": lambda g: (g["number_of_reviews_ltm"] == 0).mean(),
+    "beds 결측 (원본)": lambda g: (g["beds_impute"] != "observed").mean(),
 }
 vals = {src: [f(d[d.source == src]) * 100 for f in metrics.values()] for src in [0, 1]}
 fig, ax = plt.subplots(figsize=(8, 4))
 x = np.arange(len(metrics)); w = 0.36
 b0 = ax.bar(x - w / 2 - 0.01, vals[0], w, color=BLUE, label=f"source 0 (분석 대상 · {(d.source == 0).sum():,}건)")
-b1 = ax.bar(x + w / 2 + 0.01, vals[1], w, color=GRAY, label=f"source 1 (과거값 이월 · {(d.source == 1).sum():,}건)")
+b1 = ax.bar(x + w / 2 + 0.01, vals[1], w, color=GRAY, label=f"source 1 (가격·달력 미수집 · {(d.source == 1).sum():,}건)")
 bar_labels(ax, b0, lambda v: f"{v:.1f}%"); bar_labels(ax, b1, lambda v: f"{v:.1f}%")
-ax.set_xticks(x, list(metrics)); ax.set_ylim(0, 112); ax.set_yticks([])
+ax.set_xticks(x, list(metrics)); ax.set_ylim(0, 125); ax.set_yticks([])
 ax.legend(frameon=False, loc="upper left", fontsize=10, ncol=2)
-ax.set_title("source 1은 가격 · 달력 · 최근 리뷰가 '현재'가 아니다", loc="left")
-save(fig, "01_source_compare.png", "source 1의 마지막 리뷰 중앙값 2024-09-27 (source 0은 2026-05-25)")
+ax.set_title("source 1은 가격 · 달력이 대부분 비어 있고 수집 스키마도 다르다", loc="left")
+save(fig, "01_source_compare.png", f"리뷰 필드는 양쪽 다 최신 — 가장 최근 리뷰 source 0 {pd.to_datetime(d.loc[d.source == 0, 'last_review']).max():%Y-%m-%d} · source 1 {pd.to_datetime(d.loc[d.source == 1, 'last_review']).max():%Y-%m-%d}")
 
 # ── 02. 도시 규모 vs 숙소당 수익 ────────────────────────────────────
 sp = s[s["has_price"]].assign(rev=lambda t: t["price"] * t["occ_review"] * 365)
